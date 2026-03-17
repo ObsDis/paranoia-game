@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PARANOIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1a1a24;
+      --border: #2a2a3a;
+      --text: #e8e8f0;
+      --text-dim: #8888a0;
+      --accent: #7c3aed;
+      --accent-glow: #7c3aed80;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --gold: #f59e0b;
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    .screen { display: none; min-height: 100dvh; padding: 20px; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; }
+
+    /* ===== HOME SCREEN ===== */
+    #home { justify-content: center; gap: 40px; }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 4rem;
+      font-weight: 700;
+      letter-spacing: -2px;
+      background: linear-gradient(135deg, #7c3aed, #ec4899, #06b6d4);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-align: center;
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { filter: drop-shadow(0 0 20px var(--accent-glow)); }
+      to { filter: drop-shadow(0 0 40px #ec489980); }
+    }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      text-align: center;
+      margin-top: -30px;
+      max-width: 300px;
+    }
+
+    .home-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn {
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: white;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-primary:hover { box-shadow: 0 4px 30px var(--accent-glow); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+    }
+
+    .btn-small {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      width: 100%;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .join-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .join-row input { flex: 1; text-transform: uppercase; letter-spacing: 3px; text-align: center; font-weight: 600; }
+
+    /* ===== AVATAR PICKER ===== */
+    .avatar-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .avatar-option {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      transition: all 0.2s;
+    }
+
+    .avatar-option.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      transform: scale(1.1);
+    }
+
+    /* ===== LOBBY ===== */
+    #lobby { gap: 20px; padding-top: 40px; }
+
+    .room-header {
+      text-align: center;
+    }
+
+    .room-code {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--accent);
+    }
+
+    .room-label {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    .share-btn {
+      margin-top: 8px;
+      padding: 8px 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .share-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .players-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      max-width: 500px;
+      width: 100%;
+      margin: 20px 0;
+    }
+
+    .player-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 50px;
+      font-size: 0.95rem;
+    }
+
+    .player-chip .avatar { font-size: 1.2rem; }
+    .player-chip.host { border-color: var(--gold); }
+    .host-badge { font-size: 0.7rem; color: var(--gold); margin-left: 4px; }
+
+    .lobby-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 340px;
+      margin-top: auto;
+      padding-bottom: 20px;
+    }
+
+    .player-count {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    /* ===== GAME SCREEN ===== */
+    #game { gap: 16px; padding-top: 20px; }
+
+    .game-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .game-room-code {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+
+    .turn-indicator {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    /* Circle of players */
+    .circle-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 10px 0;
+    }
+
+    .circle-player {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .circle-player.selectable:hover .circle-avatar {
+      border-color: var(--pink);
+      box-shadow: 0 0 20px #ec489960;
+    }
+
+    .circle-player.active-turn .circle-avatar {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+      animation: pulse 2s infinite;
+    }
+
+    .circle-player.picked .circle-avatar {
+      border-color: var(--gold);
+      box-shadow: 0 0 25px #f59e0b60;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+      50% { box-shadow: 0 0 35px var(--accent-glow); }
+    }
+
+    .circle-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      transition: all 0.3s;
+    }
+
+    .circle-name {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      max-width: 70px;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .circle-player.active-turn .circle-name { color: var(--accent); font-weight: 600; }
+    .circle-player.picked .circle-name { color: var(--gold); font-weight: 600; }
+
+    .circle-score {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      background: var(--surface2);
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+
+    /* Game panels */
+    .game-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .question-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      line-height: 1.4;
+      margin: 12px 0 20px;
+      color: var(--text);
+    }
+
+    .panel-label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .pick-instruction {
+      color: var(--pink);
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    .waiting-text {
+      color: var(--text-dim);
+      font-size: 1rem;
+    }
+
+    .waiting-dots::after {
+      content: '';
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+
+    /* Coin flip */
+    .coin-container {
+      perspective: 800px;
+      margin: 20px 0;
+    }
+
+    .coin {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin: 0 auto;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+
+    .coin.flipping {
+      animation: coinFlip 2s ease-out forwards;
+    }
+
+    @keyframes coinFlip {
+      0% { transform: rotateY(0deg); }
+      100% { transform: rotateY(1800deg); }
+    }
+
+    .coin-heads {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      color: #000;
+      font-weight: 700;
+      font-size: 1.2rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .coin-tails {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      font-weight: 700;
+      font-size: 1.2rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .result-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.1rem;
+      margin: 16px 0;
+      line-height: 1.5;
+    }
+
+    .result-text .picked-name { color: var(--gold); font-weight: 600; }
+    .result-text .revealed-question { color: var(--pink); font-style: italic; }
+    .result-text .secret { color: var(--text-dim); }
+
+    .pointed-at {
+      font-size: 1.3rem;
+      margin: 8px 0;
+    }
+
+    .pointed-at .name { color: var(--gold); font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+
+    /* History */
+    .history-toggle {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      padding: 8px;
+      transition: color 0.2s;
+    }
+
+    .history-toggle:hover { color: var(--text); }
+
+    .history-panel {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .history-panel.open { display: block; }
+
+    .history-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .history-item:last-child { border-bottom: none; }
+    .history-revealed { color: var(--pink); }
+    .history-secret { color: var(--text-dim); font-style: italic; }
+
+    /* Whisperer panel */
+    .whisperer-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      color: white;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* Toast / notifications */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      z-index: 1000;
+      animation: slideDown 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+      pointer-events: none;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      to { opacity: 0; }
+    }
+
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* Skip button */
+    .skip-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      text-decoration: underline;
+      margin-top: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 400px) {
+      .logo { font-size: 3rem; }
+      .circle-container { width: 280px; height: 280px; }
+      .circle-avatar { width: 44px; height: 44px; font-size: 1.2rem; }
+      .question-text { font-size: 1.1rem; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* How to play */
+    .rules-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      width: 100%;
+      max-width: 340px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .rules-box h3 {
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+
+    .rules-box ol { padding-left: 18px; }
+    .rules-box li { margin-bottom: 4px; }
+
+    .emoji-big { font-size: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<!-- ===== HOME SCREEN ===== -->
+<div id="home" class="screen active">
+  <div class="logo">PARANOIA</div>
+  <p class="subtitle">The party game where you never know what was asked... unless the coin decides.</p>
+
+  <div class="home-actions">
+    <div class="input-group">
+      <input type="text" id="nameInput" placeholder="Your name" maxlength="15" autocomplete="off">
+    </div>
+
+    <div class="avatar-row" id="avatarRow"></div>
+
+    <button class="btn btn-primary" id="createBtn">Create Room</button>
+
+    <div class="divider">or join a room</div>
+
+    <div class="join-row">
+      <input type="text" id="codeInput" placeholder="CODE" maxlength="6" autocomplete="off">
+      <button class="btn btn-secondary" id="joinBtn">Join</button>
+    </div>
+  </div>
+
+  <div class="rules-box">
+    <h3>How to Play</h3>
+    <ol>
+      <li>A question is whispered to one player</li>
+      <li>They answer by pointing at someone in the circle</li>
+      <li>A coin is flipped: <b>Heads</b> = question revealed, <b>Tails</b> = stays secret forever</li>
+      <li>The pointed-at person may never know why...</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ===== LOBBY ===== -->
+<div id="lobby" class="screen">
+  <div class="room-header">
+    <div class="room-label">ROOM CODE</div>
+    <div class="room-code" id="lobbyCode"></div>
+    <button class="share-btn" id="shareBtn">Copy invite link</button>
+  </div>
+
+  <div class="player-count" id="playerCount"></div>
+  <div class="players-list" id="playersList"></div>
+
+  <div class="lobby-actions">
+    <button class="btn btn-primary" id="startBtn" style="display:none;">Start Game</button>
+    <p class="waiting-text" id="waitingHost" style="display:none;">Waiting for host to start<span class="waiting-dots"></span></p>
+  </div>
+</div>
+
+<!-- ===== GAME ===== -->
+<div id="game" class="screen">
+  <div class="game-top-bar">
+    <div class="game-room-code" id="gameRoomCode"></div>
+    <div class="turn-indicator" id="turnIndicator"></div>
+    <button class="btn btn-small btn-secondary" id="endGameBtn" style="display:none;">End Game</button>
+  </div>
+
+  <div class="circle-container" id="circleContainer"></div>
+
+  <div class="game-panel" id="gamePanel"></div>
+
+  <button class="history-toggle" id="historyToggle">Show History</button>
+  <div class="history-panel" id="historyPanel"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+// State
+let myId = null;
+let isHost = false;
+let roomCode = '';
+let players = [];
+let gameHistory = [];
+
+// Avatars
+const AVATARS = ['😈','👻','🔥','💀','🎭','🍑','🌶️','💋','🦊','🐍','🎲','🃏','👁️','🖤','⚡','🌙','🍷','💎','🎪','🔮'];
+let selectedAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+
+// DOM
+const $ = id => document.getElementById(id);
+
+// Init avatars
+function initAvatars() {
+  const row = $('avatarRow');
+  AVATARS.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'avatar-option' + (a === selectedAvatar ? ' selected' : '');
+    div.textContent = a;
+    div.onclick = () => {
+      row.querySelectorAll('.avatar-option').forEach(d => d.classList.remove('selected'));
+      div.classList.add('selected');
+      selectedAvatar = a;
+    };
+    row.appendChild(div);
+  });
+}
+initAvatars();
+
+// Check URL for room code
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('room')) {
+  $('codeInput').value = urlParams.get('room');
+}
+
+// Show screen
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+// Toast
+function toast(msg, isError = false) {
+  const div = document.createElement('div');
+  div.className = 'toast' + (isError ? ' error' : '');
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
+}
+
+// Create room
+$('createBtn').onclick = () => {
+  const name = $('nameInput').value.trim();
+  if (!name) { toast('Enter your name!', true); return; }
+  socket.emit('create-room', { name, avatar: selectedAvatar });
+};
+
+// Join room
+$('joinBtn').onclick = () => {
+  const name = $('nameInput').value.trim();
+  const code = $('codeInput').value.trim();
+  if (!name) { toast('Enter your name!', true); return; }
+  if (!code) { toast('Enter a room code!', true); return; }
+  socket.emit('join-room', { code, name, avatar: selectedAvatar });
+};
+
+// Enter key handlers
+$('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('createBtn').click(); });
+$('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('joinBtn').click(); });
+
+// Room created
+socket.on('room-created', ({ code, players: p, you }) => {
+  myId = you;
+  isHost = true;
+  roomCode = code;
+  players = p;
+  showLobby();
+});
+
+// Room joined
+socket.on('room-joined', ({ code, players: p, you, state }) => {
+  myId = you;
+  roomCode = code;
+  players = p;
+  if (state === 'playing') {
+    showScreen('game');
+  } else {
+    showLobby();
+  }
+});
+
+// Player joined/left
+socket.on('player-joined', ({ players: p }) => {
+  players = p;
+  updateLobbyPlayers();
+  updateCircle();
+});
+
+socket.on('player-left', ({ players: p, leftName }) => {
+  players = p;
+  updateLobbyPlayers();
+  updateCircle();
+  toast(`${leftName} left the game`);
+});
+
+// Show lobby
+function showLobby() {
+  showScreen('lobby');
+  $('lobbyCode').textContent = roomCode;
+  updateLobbyPlayers();
+
+  $('shareBtn').onclick = () => {
+    const url = `${window.location.origin}?room=${roomCode}`;
+    navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => {
+      // Fallback
+      prompt('Share this link:', url);
+    });
+  };
+}
+
+function updateLobbyPlayers() {
+  $('playerCount').textContent = `${players.length} player${players.length !== 1 ? 's' : ''} in room`;
+  const list = $('playersList');
+  list.innerHTML = '';
+  players.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'player-chip' + (p.id === players[0]?.id ? ' host' : '');
+    chip.innerHTML = `<span class="avatar">${p.avatar}</span>${p.name}${p.id === players[0]?.id ? '<span class="host-badge">HOST</span>' : ''}`;
+    list.appendChild(chip);
+  });
+
+  // Show start button only for host
+  const imHost = players.length > 0 && players[0].id === myId;
+  isHost = imHost;
+  $('startBtn').style.display = imHost ? 'block' : 'none';
+  $('waitingHost').style.display = !imHost ? 'block' : 'none';
+}
+
+// Start game
+$('startBtn').onclick = () => {
+  socket.emit('start-game');
+};
+
+// You became host
+socket.on('you-are-host', () => {
+  isHost = true;
+  toast("You're the new host!");
+  updateLobbyPlayers();
+});
+
+// ===== GAME =====
+
+// Your turn - you see the question
+socket.on('your-turn', ({ question, players: p, you }) => {
+  players = p;
+  showScreen('game');
+  updateGameTopBar();
+  updateCircle(null, true);
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  $('gamePanel').innerHTML = `
+    <div class="panel-label">Your question</div>
+    <div class="question-text">${escapeHtml(question)}</div>
+    <div class="pick-instruction">Tap someone in the circle to point at them</div>
+    <button class="skip-btn" id="skipBtn">Skip this question</button>
+  `;
+
+  document.getElementById('skipBtn').onclick = () => socket.emit('skip-question');
+});
+
+// You are the whisperer
+socket.on('you-are-whisperer', ({ question, askerName }) => {
+  showScreen('game');
+  updateGameTopBar();
+  updateCircle();
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  $('gamePanel').innerHTML = `
+    <div class="whisperer-badge">You're the Whisperer</div>
+    <div class="panel-label">Whisper this to <b>${escapeHtml(askerName)}</b></div>
+    <div class="question-text">${escapeHtml(question)}</div>
+    <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 8px;">Waiting for them to point at someone<span class="waiting-dots"></span></p>
+  `;
+});
+
+// Waiting for pick
+socket.on('waiting-for-pick', ({ currentPlayerName, whispererName, players: p }) => {
+  players = p;
+  showScreen('game');
+  updateGameTopBar();
+  updateCircle();
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  $('gamePanel').innerHTML = `
+    <div class="emoji-big">🤫</div>
+    <div class="result-text">
+      <b>${escapeHtml(whispererName)}</b> is whispering a question to <b>${escapeHtml(currentPlayerName)}</b>
+    </div>
+    <p class="waiting-text">Waiting for them to point<span class="waiting-dots"></span></p>
+  `;
+});
+
+// Sync for late joiners
+socket.on('game-state-sync', ({ players: p, currentPlayerName, phase }) => {
+  players = p;
+  showScreen('game');
+  updateGameTopBar();
+  updateCircle();
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  $('gamePanel').innerHTML = `
+    <div class="emoji-big">🤫</div>
+    <div class="result-text">Game in progress</div>
+    <p class="waiting-text">Waiting for <b>${escapeHtml(currentPlayerName)}</b> to pick<span class="waiting-dots"></span></p>
+  `;
+});
+
+// Coin flip result
+socket.on('coin-flip', ({ answererName, whispererName, pickedName, pickedId, coinResult, question, players: p, history }) => {
+  players = p;
+  gameHistory = history;
+  updateCircle(pickedId);
+  updateHistory();
+
+  const panel = $('gamePanel');
+  const isRevealed = coinResult === 'heads';
+
+  panel.innerHTML = `
+    <div class="pointed-at">${escapeHtml(answererName)} pointed at <span class="name">${escapeHtml(pickedName)}</span></div>
+    <div class="coin-container">
+      <div class="coin flipping ${isRevealed ? 'coin-heads' : 'coin-tails'}" id="theCoin">
+        ${isRevealed ? 'H' : 'T'}
+      </div>
+    </div>
+    <div class="result-text" id="resultText" style="opacity:0;"></div>
+    ${isHost ? '<button class="btn btn-primary" id="nextTurnBtn" style="margin-top:16px; opacity:0;">Next Turn</button>' : ''}
+  `;
+
+  // Show result after coin flip animation
+  setTimeout(() => {
+    const resultEl = document.getElementById('resultText');
+    if (isRevealed) {
+      resultEl.innerHTML = `
+        <div style="color: var(--gold); font-size: 1.4rem; margin-bottom: 8px;">HEADS - REVEALED!</div>
+        <div class="revealed-question">"${escapeHtml(question)}"</div>
+      `;
+    } else {
+      resultEl.innerHTML = `
+        <div style="color: var(--accent); font-size: 1.4rem; margin-bottom: 8px;">TAILS - SECRET FOREVER</div>
+        <div class="secret">The question stays hidden... 🤫</div>
+      `;
+    }
+    resultEl.style.opacity = '1';
+    resultEl.style.transition = 'opacity 0.5s';
+
+    const nextBtn = document.getElementById('nextTurnBtn');
+    if (nextBtn) {
+      nextBtn.style.opacity = '1';
+      nextBtn.style.transition = 'opacity 0.3s';
+      nextBtn.onclick = () => socket.emit('next-turn');
+    }
+  }, 2200);
+});
+
+// Game ended
+socket.on('game-ended', ({ players: p, reason }) => {
+  players = p;
+  if (reason) toast(reason);
+  gameHistory = [];
+  showLobby();
+});
+
+// Kicked
+socket.on('kicked', () => {
+  toast('You were kicked from the room', true);
+  showScreen('home');
+});
+
+// Errors
+socket.on('error-msg', msg => toast(msg, true));
+
+// End game button
+$('endGameBtn').onclick = () => socket.emit('end-game');
+
+// History toggle
+$('historyToggle').onclick = () => {
+  $('historyPanel').classList.toggle('open');
+  $('historyToggle').textContent = $('historyPanel').classList.contains('open') ? 'Hide History' : 'Show History';
+};
+
+// ===== HELPERS =====
+
+function updateGameTopBar() {
+  $('gameRoomCode').textContent = roomCode;
+}
+
+function updateCircle(highlightId = null, selectable = false) {
+  const container = $('circleContainer');
+  container.innerHTML = '';
+  const count = players.length;
+  const radius = Math.min(container.offsetWidth, container.offsetHeight) / 2 - 40;
+  const cx = container.offsetWidth / 2;
+  const cy = container.offsetHeight / 2;
+
+  players.forEach((p, i) => {
+    const angle = (2 * Math.PI * i / count) - Math.PI / 2;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+
+    const div = document.createElement('div');
+    div.className = 'circle-player';
+    if (highlightId === p.id) div.classList.add('picked');
+    if (selectable && p.id !== myId) div.classList.add('selectable');
+    if (p.id === myId && selectable) div.classList.add('active-turn');
+
+    div.style.left = x + 'px';
+    div.style.top = y + 'px';
+
+    div.innerHTML = `
+      <div class="circle-avatar">${p.avatar}</div>
+      <div class="circle-name">${escapeHtml(p.name)}</div>
+      ${p.score > 0 ? `<div class="circle-score">pointed: ${p.score}</div>` : ''}
+    `;
+
+    if (selectable && p.id !== myId) {
+      div.onclick = () => {
+        socket.emit('pick-player', { pickedId: p.id });
+        // Disable further clicks
+        container.querySelectorAll('.circle-player').forEach(el => {
+          el.classList.remove('selectable');
+          el.onclick = null;
+        });
+        div.classList.add('picked');
+      };
+    }
+
+    container.appendChild(div);
+  });
+}
+
+function updateHistory() {
+  const panel = $('historyPanel');
+  panel.innerHTML = '';
+  if (gameHistory.length === 0) {
+    panel.innerHTML = '<p style="color: var(--text-dim); font-size: 0.85rem;">No rounds yet.</p>';
+    return;
+  }
+  [...gameHistory].reverse().forEach((h, idx) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    if (h.revealed) {
+      div.innerHTML = `
+        <b>${escapeHtml(h.whisperer)}</b> asked <b>${escapeHtml(h.answerer)}</b>:
+        <span class="history-revealed">"${escapeHtml(h.question)}"</span>
+        <br>→ Pointed at <b>${escapeHtml(h.picked)}</b> <span style="color:var(--gold)">🪙 Heads</span>
+      `;
+    } else {
+      div.innerHTML = `
+        <b>${escapeHtml(h.whisperer)}</b> asked <b>${escapeHtml(h.answerer)}</b> a secret question
+        <br>→ Pointed at <b>${escapeHtml(h.picked)}</b> <span class="history-secret">🪙 Tails - secret forever</span>
+      `;
+    }
+    panel.appendChild(div);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
