@@ -128,11 +128,21 @@ app.post('/api/track-visit', async (req, res) => {
 });
 
 // ===== ADMIN DASHBOARD =====
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'paranoia-admin';
+
+function requireAdmin(req, res, next) {
+  const pw = req.query.pw || req.headers['x-admin-password'];
+  if (pw !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/api/admin/metrics', async (req, res) => {
+app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
   const metrics = {
     // Real-time from memory
     onlineUsers: io.engine.clientsCount || 0,
@@ -153,6 +163,7 @@ app.get('/api/admin/metrics', async (req, res) => {
     visitsAllTime: 0,
     uniqueVisitorsToday: 0,
     recentQuestions: [],
+    users: [],
     visitsByDay: [],
   };
 
@@ -195,9 +206,13 @@ app.get('/api/admin/metrics', async (req, res) => {
     const { count: allCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true });
     metrics.visitsAllTime = allCount || 0;
 
-    // Recent custom questions (last 20)
-    const { data: recentQ } = await supabase.from('custom_questions').select('text, author_name, category, created_at').order('created_at', { ascending: false }).limit(20);
-    metrics.recentQuestions = recentQ || [];
+    // All custom questions
+    const { data: allQ } = await supabase.from('custom_questions').select('id, text, author_name, category, is_public, upvotes, created_at').order('created_at', { ascending: false });
+    metrics.recentQuestions = allQ || [];
+
+    // Registered users with emails (via admin function)
+    const { data: users } = await supabase.rpc('admin_get_users');
+    metrics.users = users || [];
 
     // Visits by day (last 14 days)
     const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);

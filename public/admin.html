@@ -25,31 +25,19 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
 
-    .header {
-      display: flex; align-items: center; justify-content: space-between;
-      max-width: 1200px; margin: 0 auto 24px;
-    }
-    .header h1 {
-      font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem;
-      background: linear-gradient(135deg, #7c3aed, #ec4899);
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    .header { display: flex; align-items: center; justify-content: space-between; max-width: 1200px; margin: 0 auto 24px; }
+    .header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; background: linear-gradient(135deg, #7c3aed, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     .header .subtitle { color: var(--text-dim); font-size: 0.8rem; }
     .refresh-info { color: var(--text-dim); font-size: 0.75rem; }
     .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px; animation: livePulse 2s infinite; }
     @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; max-width: 1200px; margin: 0 auto 24px; }
-
-    .card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 18px; transition: border-color 0.2s;
-    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; max-width: 1200px; margin: 0 auto 24px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; transition: border-color 0.2s; }
     .card:hover { border-color: var(--accent); }
-    .card .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
-    .card .value { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; line-height: 1.2; }
-    .card .sub { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
-
+    .card .label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+    .card .value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+    .card .sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
     .card .value.purple { color: var(--accent); }
     .card .value.green { color: var(--success); }
     .card .value.gold { color: var(--gold); }
@@ -58,47 +46,40 @@
     .card .value.orange { color: var(--orange); }
 
     .section { max-width: 1200px; margin: 0 auto 24px; }
-    .section h2 {
-      font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem;
-      margin-bottom: 12px; color: var(--text);
-    }
+    .section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; margin-bottom: 12px; }
 
-    .chart-container {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 20px; width: 100%;
-    }
-    .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 160px; padding-top: 10px; }
-    .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
-    .chart-bar {
-      width: 100%; min-width: 20px; background: linear-gradient(180deg, var(--accent), var(--pink));
-      border-radius: 6px 6px 0 0; transition: height 0.5s ease; min-height: 2px;
-    }
-    .chart-label { font-size: 0.6rem; color: var(--text-dim); writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); }
-    .chart-count { font-size: 0.65rem; color: var(--text-dim); }
+    .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 140px; }
+    .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; min-width: 0; }
+    .chart-bar { width: 100%; background: linear-gradient(180deg, var(--accent), var(--pink)); border-radius: 4px 4px 0 0; transition: height 0.5s ease; min-height: 2px; }
+    .chart-date { font-size: 0.55rem; color: var(--text-dim); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+    .chart-count { font-size: 0.6rem; color: var(--text-dim); margin-bottom: 2px; }
 
-    .table-wrap {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      overflow: hidden;
-    }
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; max-height: 500px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th { background: var(--surface2); font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; padding: 10px 14px; text-align: left; }
-    td { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 0.85rem; }
-    .badge-cat {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      font-size: 0.65rem; font-weight: 600;
-    }
+    th { background: var(--surface2); font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; position: sticky; top: 0; z-index: 1; }
+    td { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 0.8rem; }
+    tr:hover td { background: var(--surface2); }
+    .badge-cat { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.6rem; font-weight: 600; }
     .badge-live { background: var(--orange); color: white; }
     .badge-custom { background: var(--accent); color: white; }
-    .badge-preset { background: var(--cyan); color: white; }
 
-    .empty-state { text-align: center; padding: 40px; color: var(--text-dim); font-size: 0.9rem; }
-    .loading { text-align: center; padding: 60px; color: var(--text-dim); }
-
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 1200px; margin: 0 auto 24px; }
-    @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
-
+    .empty-state { text-align: center; padding: 30px; color: var(--text-dim); font-size: 0.85rem; }
     .back-link { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
     .back-link:hover { text-decoration: underline; }
+    .email-cell { font-family: monospace; font-size: 0.75rem; color: var(--cyan); }
+    .copy-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; cursor: pointer; font-family: 'Inter', sans-serif; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .tabs-row { display: flex; gap: 6px; margin-bottom: 14px; }
+    .tab-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-dim); font-family: 'Inter', sans-serif; font-size: 0.8rem; cursor: pointer; }
+    .tab-btn.active { border-color: var(--accent); color: var(--accent); background: #7c3aed10; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .q-text { max-width: 400px; word-break: break-word; }
+
+    @media (max-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
   </style>
 </head>
 <body>
@@ -114,201 +95,208 @@
   </div>
 </div>
 
-<!-- REAL-TIME METRICS -->
-<div class="grid" id="realtimeGrid">
-  <div class="card">
-    <div class="label">Online Now</div>
-    <div class="value green" id="metricOnline">--</div>
-    <div class="sub">Connected sockets</div>
-  </div>
-  <div class="card">
-    <div class="label">Active Games</div>
-    <div class="value purple" id="metricActiveGames">--</div>
-    <div class="sub">Games in progress</div>
-  </div>
-  <div class="card">
-    <div class="label">Players Playing</div>
-    <div class="value pink" id="metricPlayersInGames">--</div>
-    <div class="sub">In active games</div>
-  </div>
-  <div class="card">
-    <div class="label">In Lobbies</div>
-    <div class="value cyan" id="metricPlayersInLobbies">--</div>
-    <div class="sub">Waiting to start</div>
-  </div>
-  <div class="card">
-    <div class="label">Active Rooms</div>
-    <div class="value gold" id="metricActiveRooms">--</div>
-    <div class="sub">Total rooms open</div>
-  </div>
-  <div class="card">
-    <div class="label">Rounds Active</div>
-    <div class="value orange" id="metricRoundsActive">--</div>
-    <div class="sub">Across all games</div>
-  </div>
-</div>
-
-<!-- PERSISTENT METRICS -->
+<!-- REAL-TIME -->
 <div class="grid">
-  <div class="card">
-    <div class="label">Registered Accounts</div>
-    <div class="value purple" id="metricAccounts">--</div>
-    <div class="sub">Supabase auth users</div>
-  </div>
-  <div class="card">
-    <div class="label">Custom Questions</div>
-    <div class="value pink" id="metricQuestions">--</div>
-    <div class="sub" id="metricQSub">Total submitted</div>
-  </div>
-  <div class="card">
-    <div class="label">Games Completed</div>
-    <div class="value gold" id="metricGamesPlayed">--</div>
-    <div class="sub" id="metricRoundsPlayed">-- total rounds</div>
-  </div>
-  <div class="card">
-    <div class="label">Visits Today</div>
-    <div class="value green" id="metricVisitsToday">--</div>
-    <div class="sub" id="metricUniqueToday">-- unique visitors</div>
-  </div>
-  <div class="card">
-    <div class="label">Visits This Week</div>
-    <div class="value cyan" id="metricVisitsWeek">--</div>
-    <div class="sub">Last 7 days</div>
-  </div>
-  <div class="card">
-    <div class="label">All-Time Visits</div>
-    <div class="value orange" id="metricVisitsAll">--</div>
-    <div class="sub">Since tracking started</div>
+  <div class="card"><div class="label">Online Now</div><div class="value green" id="metricOnline">--</div><div class="sub">Connected sockets</div></div>
+  <div class="card"><div class="label">Active Games</div><div class="value purple" id="metricActiveGames">--</div><div class="sub">In progress</div></div>
+  <div class="card"><div class="label">Players Playing</div><div class="value pink" id="metricPlayersInGames">--</div><div class="sub">In active games</div></div>
+  <div class="card"><div class="label">In Lobbies</div><div class="value cyan" id="metricPlayersInLobbies">--</div><div class="sub">Waiting</div></div>
+  <div class="card"><div class="label">Rooms Open</div><div class="value gold" id="metricActiveRooms">--</div><div class="sub">Total</div></div>
+  <div class="card"><div class="label">Rounds Active</div><div class="value orange" id="metricRoundsActive">--</div><div class="sub">All games</div></div>
+</div>
+
+<!-- PERSISTENT -->
+<div class="grid">
+  <div class="card"><div class="label">Accounts</div><div class="value purple" id="metricAccounts">--</div><div class="sub">Registered users</div></div>
+  <div class="card"><div class="label">Custom Questions</div><div class="value pink" id="metricQuestions">--</div><div class="sub" id="metricQSub">Total</div></div>
+  <div class="card"><div class="label">Games Completed</div><div class="value gold" id="metricGamesPlayed">--</div><div class="sub" id="metricRoundsPlayed">--</div></div>
+  <div class="card"><div class="label">Visits Today</div><div class="value green" id="metricVisitsToday">--</div><div class="sub" id="metricUniqueToday">--</div></div>
+  <div class="card"><div class="label">Visits (7d)</div><div class="value cyan" id="metricVisitsWeek">--</div><div class="sub">This week</div></div>
+  <div class="card"><div class="label">All-Time Visits</div><div class="value orange" id="metricVisitsAll">--</div><div class="sub">Total</div></div>
+</div>
+
+<!-- TRAFFIC CHART -->
+<div class="section">
+  <h2>Traffic (Last 14 Days)</h2>
+  <div class="chart-container">
+    <div class="chart-bars" id="trafficChart"><div class="empty-state">Loading...</div></div>
   </div>
 </div>
 
-<!-- TRAFFIC CHART + QUESTIONS TABLE -->
-<div class="two-col">
-  <div>
-    <div class="section">
-      <h2>Traffic (Last 14 Days)</h2>
-      <div class="chart-container">
-        <div class="chart-bars" id="trafficChart">
-          <div class="empty-state">Loading...</div>
-        </div>
-      </div>
+<!-- TABS: Users / Questions -->
+<div class="section">
+  <div class="tabs-row">
+    <button class="tab-btn active" onclick="switchTab('users')">Registered Users</button>
+    <button class="tab-btn" onclick="switchTab('questions')">User Questions</button>
+  </div>
+
+  <div class="tab-content active" id="tab-users">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Avatar</th><th>Username</th><th>Email</th><th>Games</th><th>Pointed At</th><th>Joined</th><th>Last Sign In</th></tr></thead>
+        <tbody id="usersTable"><tr><td colspan="7" class="empty-state">Loading...</td></tr></tbody>
+      </table>
     </div>
   </div>
-  <div>
-    <div class="section">
-      <h2>Recent Custom Questions</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Question</th><th>By</th><th>Type</th><th>When</th></tr></thead>
-          <tbody id="questionsTable">
-            <tr><td colspan="4" class="empty-state">Loading...</td></tr>
-          </tbody>
-        </table>
-      </div>
+
+  <div class="tab-content" id="tab-questions">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Question</th><th>By</th><th>Type</th><th>Upvotes</th><th>Submitted</th></tr></thead>
+        <tbody id="questionsTable"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
+let adminPw = sessionStorage.getItem('admin_pw') || '';
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+async function checkPassword() {
+  if (!adminPw) {
+    adminPw = prompt('Enter admin password:');
+    if (!adminPw) return false;
+  }
+  const res = await fetch('/api/admin/metrics?pw=' + encodeURIComponent(adminPw));
+  if (res.status === 401) {
+    sessionStorage.removeItem('admin_pw');
+    adminPw = '';
+    alert('Wrong password.');
+    adminPw = prompt('Enter admin password:');
+    if (!adminPw) return false;
+    const res2 = await fetch('/api/admin/metrics?pw=' + encodeURIComponent(adminPw));
+    if (res2.status === 401) { alert('Wrong password.'); return false; }
+    sessionStorage.setItem('admin_pw', adminPw);
+    return await res2.json();
+  }
+  sessionStorage.setItem('admin_pw', adminPw);
+  return await res.json();
+}
 
 async function loadMetrics() {
   try {
-    const res = await fetch('/api/admin/metrics');
-    const m = await res.json();
+    const res = await fetch('/api/admin/metrics?pw=' + encodeURIComponent(adminPw));
+    if (res.status === 401) {
+      document.body.innerHTML = '<div style="text-align:center;padding:100px;color:#8888a0;">Session expired. Reload to re-authenticate.</div>';
+      return;
+    }
+    applyMetrics(await res.json());
+  } catch (e) { console.error('Failed:', e); }
+}
 
-    // Real-time
-    $('metricOnline').textContent = m.onlineUsers;
-    $('metricActiveGames').textContent = m.activeGames;
-    $('metricPlayersInGames').textContent = m.playersInGames;
-    $('metricPlayersInLobbies').textContent = m.playersInLobbies;
-    $('metricActiveRooms').textContent = m.activeRooms;
-    $('metricRoundsActive').textContent = m.totalRoundsActive;
-
-    // Persistent
-    $('metricAccounts').textContent = m.totalAccounts;
-    $('metricQuestions').textContent = m.totalCustomQuestions;
-    $('metricQSub').textContent = `${m.liveQuestions} from live games`;
-    $('metricGamesPlayed').textContent = m.totalGamesPlayed;
-    $('metricRoundsPlayed').textContent = `${m.totalRoundsPlayed} total rounds`;
-    $('metricVisitsToday').textContent = m.visitsToday;
-    $('metricUniqueToday').textContent = `${m.uniqueVisitorsToday} unique visitors`;
-    $('metricVisitsWeek').textContent = m.visitsThisWeek;
-    $('metricVisitsAll').textContent = m.visitsAllTime;
-
-    // Traffic chart
-    renderChart(m.visitsByDay);
-
-    // Questions table
-    renderQuestions(m.recentQuestions);
-
-  } catch (e) {
-    console.error('Failed to load metrics:', e);
-  }
+function applyMetrics(m) {
+  $('metricOnline').textContent = m.onlineUsers;
+  $('metricActiveGames').textContent = m.activeGames;
+  $('metricPlayersInGames').textContent = m.playersInGames;
+  $('metricPlayersInLobbies').textContent = m.playersInLobbies;
+  $('metricActiveRooms').textContent = m.activeRooms;
+  $('metricRoundsActive').textContent = m.totalRoundsActive;
+  $('metricAccounts').textContent = m.totalAccounts;
+  $('metricQuestions').textContent = m.totalCustomQuestions;
+  $('metricQSub').textContent = m.liveQuestions + ' from live games';
+  $('metricGamesPlayed').textContent = m.totalGamesPlayed;
+  $('metricRoundsPlayed').textContent = m.totalRoundsPlayed + ' total rounds';
+  $('metricVisitsToday').textContent = m.visitsToday;
+  $('metricUniqueToday').textContent = m.uniqueVisitorsToday + ' unique';
+  $('metricVisitsWeek').textContent = m.visitsThisWeek;
+  $('metricVisitsAll').textContent = m.visitsAllTime;
+  renderChart(m.visitsByDay);
+  renderUsers(m.users);
+  renderQuestions(m.recentQuestions);
 }
 
 function renderChart(data) {
-  const container = $('trafficChart');
-  if (!data || data.length === 0) {
-    container.innerHTML = '<div class="empty-state">No traffic data yet</div>';
-    return;
-  }
-  const maxCount = Math.max(...data.map(d => d.count), 1);
-  container.innerHTML = '';
+  const c = $('trafficChart');
+  if (!data || data.length === 0) { c.innerHTML = '<div class="empty-state">No traffic data yet</div>'; return; }
+  const max = Math.max(...data.map(d => d.count), 1);
+  c.innerHTML = '';
   data.forEach(d => {
-    const pct = (d.count / maxCount) * 100;
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-bar-wrap';
-    const dayLabel = d.date.substring(5); // MM-DD
-    wrap.innerHTML = `
-      <div class="chart-count">${d.count}</div>
-      <div class="chart-bar" style="height:${Math.max(pct, 2)}%"></div>
-      <div class="chart-label">${dayLabel}</div>
-    `;
-    container.appendChild(wrap);
+    const pct = (d.count / max) * 100;
+    const w = document.createElement('div');
+    w.className = 'chart-bar-wrap';
+    w.innerHTML = '<div class="chart-count">' + d.count + '</div><div class="chart-bar" style="height:' + Math.max(pct, 3) + '%"></div><div class="chart-date">' + d.date.substring(5) + '</div>';
+    c.appendChild(w);
+  });
+}
+
+function renderUsers(users) {
+  const tb = $('usersTable');
+  if (!users || users.length === 0) { tb.innerHTML = '<tr><td colspan="7" class="empty-state">No registered users yet</td></tr>'; return; }
+  tb.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + esc(u.avatar || '') + '</td>' +
+      '<td><b>' + esc(u.username) + '</b></td>' +
+      '<td class="email-cell">' + esc(u.email || 'N/A') + ' <button class="copy-btn" onclick="copyText(\'' + esc(u.email || '') + '\')">copy</button></td>' +
+      '<td>' + (u.games_played || 0) + '</td>' +
+      '<td>' + (u.times_pointed_at || 0) + '</td>' +
+      '<td style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">' + fmtDate(u.created_at) + '</td>' +
+      '<td style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">' + (u.last_sign_in ? timeAgo(new Date(u.last_sign_in)) : 'Never') + '</td>';
+    tb.appendChild(tr);
   });
 }
 
 function renderQuestions(questions) {
-  const tbody = $('questionsTable');
-  if (!questions || questions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No custom questions yet</td></tr>';
-    return;
-  }
-  tbody.innerHTML = '';
+  const tb = $('questionsTable');
+  if (!questions || questions.length === 0) { tb.innerHTML = '<tr><td colspan="5" class="empty-state">No custom questions yet</td></tr>'; return; }
+  tb.innerHTML = '';
   questions.forEach(q => {
     const tr = document.createElement('tr');
     const cat = q.category || 'custom';
-    const badgeClass = cat === 'live' ? 'badge-live' : 'badge-custom';
-    const ago = timeAgo(new Date(q.created_at));
-    tr.innerHTML = `
-      <td>${escapeHtml(q.text.length > 60 ? q.text.substring(0, 60) + '...' : q.text)}</td>
-      <td style="color:var(--text-dim);white-space:nowrap;">${escapeHtml(q.author_name || 'Anon')}</td>
-      <td><span class="badge-cat ${badgeClass}">${cat}</span></td>
-      <td style="color:var(--text-dim);white-space:nowrap;font-size:0.75rem;">${ago}</td>
-    `;
-    tbody.appendChild(tr);
+    tr.innerHTML =
+      '<td class="q-text">' + esc(q.text) + '</td>' +
+      '<td style="white-space:nowrap;color:var(--text-dim);">' + esc(q.author_name || 'Anon') + '</td>' +
+      '<td><span class="badge-cat ' + (cat === 'live' ? 'badge-live' : 'badge-custom') + '">' + cat + '</span></td>' +
+      '<td style="text-align:center;">' + (q.upvotes || 0) + '</td>' +
+      '<td style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">' + fmtDate(q.created_at) + '</td>';
+    tb.appendChild(tr);
+  });
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const t = document.createElement('div');
+    t.textContent = 'Copied!';
+    t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--success);color:white;padding:6px 16px;border-radius:8px;font-size:0.8rem;z-index:999;';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1500);
   });
 }
 
 function timeAgo(date) {
-  const seconds = Math.floor((new Date() - date) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-  return Math.floor(seconds / 86400) + 'd ago';
+  const s = Math.floor((new Date() - date) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
 }
 
-function escapeHtml(str) {
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function esc(str) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
 
-// Initial load + auto-refresh
-loadMetrics();
-setInterval(loadMetrics, 10000);
+(async () => {
+  const data = await checkPassword();
+  if (data) { applyMetrics(data); setInterval(loadMetrics, 10000); }
+  else { document.body.innerHTML = '<div style="text-align:center;padding:100px;color:#8888a0;">Access denied. Reload to try again.</div>'; }
+})();
 </script>
 </body>
 </html>
