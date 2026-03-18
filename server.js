@@ -169,52 +169,62 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
 
   if (!supabaseReady) return res.json(metrics);
 
+  // Each query wrapped individually so one failure doesn't kill the rest
   try {
-    // Total registered accounts
     const { count: accountCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
     metrics.totalAccounts = accountCount || 0;
+  } catch (e) { console.error('Admin: profiles query failed:', e.message); }
 
-    // Custom questions stats
+  try {
     const { count: qCount } = await supabase.from('custom_questions').select('*', { count: 'exact', head: true });
     metrics.totalCustomQuestions = qCount || 0;
+  } catch (e) { console.error('Admin: questions count failed:', e.message); }
 
+  try {
     const { count: liveQCount } = await supabase.from('custom_questions').select('*', { count: 'exact', head: true }).eq('category', 'live');
     metrics.liveQuestions = liveQCount || 0;
+  } catch (e) {}
 
-    // Game history
+  try {
     const { data: gameStats } = await supabase.from('game_history').select('player_count, rounds_played');
     if (gameStats) {
       metrics.totalGamesPlayed = gameStats.length;
       metrics.totalRoundsPlayed = gameStats.reduce((sum, g) => sum + (g.rounds_played || 0), 0);
     }
+  } catch (e) {}
 
-    // Visits today
+  try {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const { count: todayCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true }).gte('created_at', todayStart.toISOString());
     metrics.visitsToday = todayCount || 0;
-
-    // Unique visitors today
     const { data: uniqueToday } = await supabase.from('site_visits').select('ip_hash').gte('created_at', todayStart.toISOString());
     metrics.uniqueVisitorsToday = uniqueToday ? new Set(uniqueToday.map(v => v.ip_hash)).size : 0;
+  } catch (e) {}
 
-    // Visits this week
+  try {
     const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7); weekStart.setHours(0, 0, 0, 0);
     const { count: weekCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true }).gte('created_at', weekStart.toISOString());
     metrics.visitsThisWeek = weekCount || 0;
+  } catch (e) {}
 
-    // All-time visits
+  try {
     const { count: allCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true });
     metrics.visitsAllTime = allCount || 0;
+  } catch (e) {}
 
-    // All custom questions
-    const { data: allQ } = await supabase.from('custom_questions').select('id, text, author_name, category, is_public, upvotes, created_at').order('created_at', { ascending: false });
+  try {
+    const { data: allQ, error: qErr } = await supabase.from('custom_questions').select('id, text, author_name, category, is_public, upvotes, created_at').order('created_at', { ascending: false });
+    if (qErr) console.error('Admin: questions fetch error:', qErr.message);
     metrics.recentQuestions = allQ || [];
+  } catch (e) { console.error('Admin: questions query failed:', e.message); }
 
-    // Registered users with emails (via admin function)
-    const { data: users } = await supabase.rpc('admin_get_users');
+  try {
+    const { data: users, error: uErr } = await supabase.rpc('admin_get_users');
+    if (uErr) console.error('Admin: users RPC error:', uErr.message);
     metrics.users = users || [];
+  } catch (e) { console.error('Admin: users query failed:', e.message); }
 
-    // Visits by day (last 14 days)
+  try {
     const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
     const { data: visitData } = await supabase.from('site_visits').select('created_at').gte('created_at', twoWeeksAgo.toISOString());
     if (visitData) {
@@ -225,9 +235,7 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
       });
       metrics.visitsByDay = Object.entries(byDay).sort().map(([date, count]) => ({ date, count }));
     }
-  } catch (e) {
-    console.error('Admin metrics error:', e.message);
-  }
+  } catch (e) {}
 
   res.json(metrics);
 });
