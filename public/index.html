@@ -1298,6 +1298,21 @@ showScreen = function(id) {
   updateLiveQVisibility();
 };
 
+// ===== TRACK VISIT =====
+fetch('/api/track-visit', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    page: window.location.pathname,
+    referrer: document.referrer || null,
+    visitor_id: localStorage.getItem('paranoia_vid') || (() => {
+      const vid = Math.random().toString(36).substring(2);
+      localStorage.setItem('paranoia_vid', vid);
+      return vid;
+    })(),
+  }),
+}).catch(() => {});
+
 // ===== INIT =====
 init();
 </script>

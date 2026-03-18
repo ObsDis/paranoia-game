@@ -110,6 +110,113 @@ app.get('/api/drinking-rules', (req, res) => {
   res.json(drinkingRules);
 });
 
+// Track page visit
+app.post('/api/track-visit', async (req, res) => {
+  const { page, referrer, visitor_id } = req.body;
+  if (supabaseReady) {
+    try {
+      await supabase.from('site_visits').insert({
+        visitor_id: visitor_id || null,
+        page: page || '/',
+        referrer: referrer || null,
+        user_agent: req.headers['user-agent'] || null,
+        ip_hash: crypto.createHash('sha256').update(req.ip || '').digest('hex').substring(0, 16),
+      });
+    } catch (e) { /* ignore */ }
+  }
+  res.json({ ok: true });
+});
+
+// ===== ADMIN DASHBOARD =====
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/api/admin/metrics', async (req, res) => {
+  const metrics = {
+    // Real-time from memory
+    onlineUsers: io.engine.clientsCount || 0,
+    activeRooms: rooms.size,
+    activeGames: [...rooms.values()].filter(r => r.state === 'playing').length,
+    playersInGames: [...rooms.values()].filter(r => r.state === 'playing').reduce((sum, r) => sum + r.players.length, 0),
+    playersInLobbies: [...rooms.values()].filter(r => r.state === 'lobby').reduce((sum, r) => sum + r.players.length, 0),
+    totalRoundsActive: [...rooms.values()].reduce((sum, r) => sum + r.roundNumber, 0),
+
+    // Supabase metrics (defaults if not available)
+    totalAccounts: 0,
+    totalCustomQuestions: 0,
+    liveQuestions: 0,
+    totalGamesPlayed: 0,
+    totalRoundsPlayed: 0,
+    visitsToday: 0,
+    visitsThisWeek: 0,
+    visitsAllTime: 0,
+    uniqueVisitorsToday: 0,
+    recentQuestions: [],
+    visitsByDay: [],
+  };
+
+  if (!supabaseReady) return res.json(metrics);
+
+  try {
+    // Total registered accounts
+    const { count: accountCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    metrics.totalAccounts = accountCount || 0;
+
+    // Custom questions stats
+    const { count: qCount } = await supabase.from('custom_questions').select('*', { count: 'exact', head: true });
+    metrics.totalCustomQuestions = qCount || 0;
+
+    const { count: liveQCount } = await supabase.from('custom_questions').select('*', { count: 'exact', head: true }).eq('category', 'live');
+    metrics.liveQuestions = liveQCount || 0;
+
+    // Game history
+    const { data: gameStats } = await supabase.from('game_history').select('player_count, rounds_played');
+    if (gameStats) {
+      metrics.totalGamesPlayed = gameStats.length;
+      metrics.totalRoundsPlayed = gameStats.reduce((sum, g) => sum + (g.rounds_played || 0), 0);
+    }
+
+    // Visits today
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const { count: todayCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true }).gte('created_at', todayStart.toISOString());
+    metrics.visitsToday = todayCount || 0;
+
+    // Unique visitors today
+    const { data: uniqueToday } = await supabase.from('site_visits').select('ip_hash').gte('created_at', todayStart.toISOString());
+    metrics.uniqueVisitorsToday = uniqueToday ? new Set(uniqueToday.map(v => v.ip_hash)).size : 0;
+
+    // Visits this week
+    const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7); weekStart.setHours(0, 0, 0, 0);
+    const { count: weekCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true }).gte('created_at', weekStart.toISOString());
+    metrics.visitsThisWeek = weekCount || 0;
+
+    // All-time visits
+    const { count: allCount } = await supabase.from('site_visits').select('*', { count: 'exact', head: true });
+    metrics.visitsAllTime = allCount || 0;
+
+    // Recent custom questions (last 20)
+    const { data: recentQ } = await supabase.from('custom_questions').select('text, author_name, category, created_at').order('created_at', { ascending: false }).limit(20);
+    metrics.recentQuestions = recentQ || [];
+
+    // Visits by day (last 14 days)
+    const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const { data: visitData } = await supabase.from('site_visits').select('created_at').gte('created_at', twoWeeksAgo.toISOString());
+    if (visitData) {
+      const byDay = {};
+      visitData.forEach(v => {
+        const day = v.created_at.substring(0, 10);
+        byDay[day] = (byDay[day] || 0) + 1;
+      });
+      metrics.visitsByDay = Object.entries(byDay).sort().map(([date, count]) => ({ date, count }));
+    }
+  } catch (e) {
+    console.error('Admin metrics error:', e.message);
+  }
+
+  res.json(metrics);
+});
+
 // ===== IN-MEMORY ROOM STORAGE =====
 const rooms = new Map();
 
