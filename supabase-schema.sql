@@ -71,6 +71,7 @@ CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (
 -- Custom questions: public ones visible to all, authors can manage their own
 CREATE POLICY "Public questions are viewable by everyone" ON custom_questions FOR SELECT USING (is_public = true OR author_id = auth.uid());
 CREATE POLICY "Authenticated users can create questions" ON custom_questions FOR INSERT WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Anyone can submit live questions" ON custom_questions FOR INSERT WITH CHECK (author_id IS NULL);
 CREATE POLICY "Authors can update their questions" ON custom_questions FOR UPDATE USING (auth.uid() = author_id);
 CREATE POLICY "Authors can delete their questions" ON custom_questions FOR DELETE USING (auth.uid() = author_id);
 

@@ -389,6 +389,41 @@
       background: #f9731620; border: 1px solid #f9731640; border-radius: 20px;
       padding: 3px 10px; font-size: 0.7rem; color: var(--orange); font-weight: 600;
     }
+
+    /* Live question submission */
+    .live-q-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 10px 16px; display: none; z-index: 800;
+    }
+    .live-q-bar.open { display: block; }
+    .live-q-form { display: flex; gap: 8px; max-width: 500px; margin: 0 auto; }
+    .live-q-form input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 14px; border-radius: 10px;
+      font-size: 0.85rem; font-family: 'Inter', sans-serif; outline: none;
+    }
+    .live-q-form input:focus { border-color: var(--accent); }
+    .live-q-form input::placeholder { color: var(--text-dim); }
+    .live-q-form button {
+      padding: 10px 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: white; border: none; border-radius: 10px; font-family: 'Inter', sans-serif;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .live-q-toggle {
+      position: fixed; bottom: 16px; right: 16px; width: 48px; height: 48px;
+      border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #ec4899);
+      color: white; border: none; font-size: 1.3rem; cursor: pointer;
+      box-shadow: 0 4px 20px var(--accent-glow); z-index: 801;
+      display: none; align-items: center; justify-content: center;
+    }
+    .live-q-toggle.visible { display: flex; }
+    .live-q-toast {
+      position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+      background: var(--success); color: white; padding: 8px 18px; border-radius: 10px;
+      font-size: 0.8rem; font-weight: 600; z-index: 802; pointer-events: none;
+      animation: slideDown 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+    }
   </style>
 </head>
 <body>
@@ -559,6 +594,15 @@
       <div id="communityQList" style="max-height:300px;overflow-y:auto;"></div>
       <button class="btn btn-primary btn-small" id="addCommunityToGame">Add All to This Game</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== LIVE QUESTION SUBMISSION ===== -->
+<button class="live-q-toggle" id="liveQToggle" title="Submit a question">+</button>
+<div class="live-q-bar" id="liveQBar">
+  <div class="live-q-form">
+    <input type="text" id="liveQInput" placeholder="Type a question for the game..." maxlength="200" autocomplete="off">
+    <button id="liveQSubmit">Submit</button>
   </div>
 </div>
 
@@ -1125,6 +1169,57 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ===== LIVE QUESTION SUBMISSION =====
+let liveQBarOpen = false;
+
+$('liveQToggle').onclick = () => {
+  liveQBarOpen = !liveQBarOpen;
+  $('liveQBar').classList.toggle('open', liveQBarOpen);
+  $('liveQToggle').textContent = liveQBarOpen ? 'X' : '+';
+  if (liveQBarOpen) $('liveQInput').focus();
+};
+
+$('liveQSubmit').onclick = submitLiveQuestion;
+$('liveQInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitLiveQuestion();
+});
+
+function submitLiveQuestion() {
+  const text = $('liveQInput').value.trim();
+  if (!text || text.length < 10) {
+    toast('Question must be at least 10 characters', true);
+    return;
+  }
+  socket.emit('submit-live-question', { text });
+  $('liveQInput').value = '';
+  liveQBarOpen = false;
+  $('liveQBar').classList.remove('open');
+  $('liveQToggle').textContent = '+';
+}
+
+// Show/hide the live question toggle based on game screen
+function updateLiveQVisibility() {
+  const gameActive = $('game').classList.contains('active');
+  $('liveQToggle').classList.toggle('visible', gameActive);
+  if (!gameActive) {
+    liveQBarOpen = false;
+    $('liveQBar').classList.remove('open');
+    $('liveQToggle').textContent = '+';
+  }
+}
+
+// Listen for live question confirmations
+socket.on('live-question-added', ({ text, authorName, questionCount }) => {
+  toast(`${authorName} added a question! (${questionCount} total)`);
+});
+
+// Override showScreen to also update live Q visibility
+const _originalShowScreen = showScreen;
+showScreen = function(id) {
+  _originalShowScreen(id);
+  updateLiveQVisibility();
+};
 
 // ===== INIT =====
 init();

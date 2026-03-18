@@ -71,6 +71,40 @@ app.get('/api/questions/community', async (req, res) => {
   }
 });
 
+// Submit a question (no auth required - for live gameplay)
+app.post('/api/questions/submit', async (req, res) => {
+  const { text, author_name, room_code } = req.body;
+  if (!text || text.trim().length < 10) {
+    return res.status(400).json({ error: 'Question must be at least 10 characters' });
+  }
+
+  // Save to Supabase if available
+  let saved = false;
+  if (supabaseReady) {
+    try {
+      const { error } = await supabase.from('custom_questions').insert({
+        text: text.trim(),
+        author_name: author_name || 'Anonymous',
+        is_public: true,
+        category: 'live',
+      });
+      if (!error) saved = true;
+    } catch (e) {
+      // Continue even if Supabase save fails
+    }
+  }
+
+  // If we have a room code, add to that room's live pool
+  if (room_code) {
+    const room = rooms.get(room_code);
+    if (room) {
+      room.questionPool.push(text.trim());
+    }
+  }
+
+  res.json({ success: true, saved });
+});
+
 // Get drinking rules
 app.get('/api/drinking-rules', (req, res) => {
   res.json(drinkingRules);
@@ -215,6 +249,40 @@ io.on('connection', (socket) => {
       room.questionPool = room.questionPool.concat(questions);
       io.to(room.code).emit('settings-updated', { mode: room.mode, intensity: room.intensity, questionCount: room.questionPool.length });
     }
+  });
+
+  // ---- SUBMIT LIVE QUESTION (any player, during gameplay) ----
+  socket.on('submit-live-question', async ({ text }) => {
+    const room = rooms.get(currentRoom);
+    if (!room) return;
+    if (!text || text.trim().length < 10) {
+      socket.emit('error-msg', 'Question must be at least 10 characters');
+      return;
+    }
+
+    const cleanText = text.trim();
+    const player = room.players.find(p => p.id === socket.id);
+    const authorName = player ? player.name : 'Anonymous';
+
+    // Add to room's question pool immediately
+    room.questionPool.push(cleanText);
+
+    // Save to Supabase in background
+    if (supabaseReady) {
+      supabase.from('custom_questions').insert({
+        text: cleanText,
+        author_name: authorName,
+        is_public: true,
+        category: 'live',
+      }).then(() => {});
+    }
+
+    // Notify all players in the room
+    io.to(room.code).emit('live-question-added', {
+      text: cleanText,
+      authorName,
+      questionCount: room.questionPool.length,
+    });
   });
 
   // ---- START GAME ----
