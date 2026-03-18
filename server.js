@@ -533,6 +533,16 @@ io.on('connection', (socket) => {
     const question = text.trim();
     room.currentQuestion = question;
 
+    // Save whisper question to Supabase
+    if (supabaseReady) {
+      supabase.from('custom_questions').insert({
+        text: question,
+        author_name: whisperer.name,
+        is_public: true,
+        category: 'live',
+      }).then(() => {});
+    }
+
     const currentPlayer = room.players[room.currentTurnIndex];
 
     // Now send the question to the asker so they can pick
