@@ -167,6 +167,7 @@ io.on('connection', (socket) => {
       state: 'lobby',
       mode: mode || 'classic', // classic or drinking
       intensity: intensity || 'medium',
+      questionSources: questionSources || ['preset'],
       questionPool,
       currentTurnIndex: 0,
       roundNumber: 0,
@@ -224,6 +225,7 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     if (mode) room.mode = mode;
     if (intensity) room.intensity = intensity;
+    if (questionSources) room.questionSources = questionSources;
 
     // Rebuild question pool
     let questionPool = [];
@@ -301,8 +303,6 @@ io.on('connection', (socket) => {
 
   function startTurn(room) {
     room.roundNumber++;
-    const question = getRandomQuestion(room.usedQuestions, room.questionPool);
-    room.currentQuestion = question;
     room.currentAnswer = null;
     const currentPlayer = room.players[room.currentTurnIndex];
     const whispererIndex = (room.currentTurnIndex - 1 + room.players.length) % room.players.length;
@@ -321,32 +321,115 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Send question to current player
-    io.to(currentPlayer.id).emit('your-turn', {
-      question, players: room.players, you: currentPlayer.id,
-      mode: room.mode, roundNumber: room.roundNumber, bonusChallenge
-    });
+    // Check if custom-only mode (whisperer types the question)
+    const isCustomOnly = room.questionSources &&
+      room.questionSources.includes('custom') &&
+      !room.questionSources.includes('preset') &&
+      !room.questionSources.includes('community');
 
-    // Send question to whisperer
-    io.to(whisperer.id).emit('you-are-whisperer', {
-      question, askerName: currentPlayer.name,
-      mode: room.mode, roundNumber: room.roundNumber, bonusChallenge
-    });
+    if (isCustomOnly) {
+      // Custom mode: whisperer types their own question
+      room.currentQuestion = null; // will be set when whisperer submits
 
-    // Tell others to wait
-    room.players.forEach(p => {
-      if (p.id !== currentPlayer.id && p.id !== whisperer.id) {
-        io.to(p.id).emit('waiting-for-pick', {
-          currentPlayerName: currentPlayer.name,
-          whispererName: whisperer.name,
-          players: room.players,
-          mode: room.mode,
-          roundNumber: room.roundNumber,
-          bonusChallenge,
-        });
-      }
-    });
+      // Tell whisperer to type a question
+      io.to(whisperer.id).emit('type-your-question', {
+        askerName: currentPlayer.name,
+        mode: room.mode,
+        roundNumber: room.roundNumber,
+        bonusChallenge,
+      });
+
+      // Tell asker to wait for the whisperer's question
+      io.to(currentPlayer.id).emit('waiting-for-whisper', {
+        whispererName: whisperer.name,
+        players: room.players,
+        you: currentPlayer.id,
+        mode: room.mode,
+        roundNumber: room.roundNumber,
+        bonusChallenge,
+      });
+
+      // Tell others to wait
+      room.players.forEach(p => {
+        if (p.id !== currentPlayer.id && p.id !== whisperer.id) {
+          io.to(p.id).emit('waiting-for-pick', {
+            currentPlayerName: currentPlayer.name,
+            whispererName: whisperer.name,
+            players: room.players,
+            mode: room.mode,
+            roundNumber: room.roundNumber,
+            bonusChallenge,
+          });
+        }
+      });
+    } else {
+      // Normal mode: pick a random question from the pool
+      const question = getRandomQuestion(room.usedQuestions, room.questionPool);
+      room.currentQuestion = question;
+
+      // Send question to current player
+      io.to(currentPlayer.id).emit('your-turn', {
+        question, players: room.players, you: currentPlayer.id,
+        mode: room.mode, roundNumber: room.roundNumber, bonusChallenge
+      });
+
+      // Send question to whisperer
+      io.to(whisperer.id).emit('you-are-whisperer', {
+        question, askerName: currentPlayer.name,
+        mode: room.mode, roundNumber: room.roundNumber, bonusChallenge
+      });
+
+      // Tell others to wait
+      room.players.forEach(p => {
+        if (p.id !== currentPlayer.id && p.id !== whisperer.id) {
+          io.to(p.id).emit('waiting-for-pick', {
+            currentPlayerName: currentPlayer.name,
+            whispererName: whisperer.name,
+            players: room.players,
+            mode: room.mode,
+            roundNumber: room.roundNumber,
+            bonusChallenge,
+          });
+        }
+      });
+    }
   }
+
+  // ---- WHISPERER SUBMITS CUSTOM QUESTION ----
+  socket.on('submit-whisper-question', ({ text }) => {
+    const room = rooms.get(currentRoom);
+    if (!room) return;
+    if (!text || text.trim().length < 5) {
+      socket.emit('error-msg', 'Question is too short');
+      return;
+    }
+
+    const whispererIndex = (room.currentTurnIndex - 1 + room.players.length) % room.players.length;
+    const whisperer = room.players[whispererIndex];
+    if (whisperer.id !== socket.id) return; // only the whisperer can submit
+
+    const question = text.trim();
+    room.currentQuestion = question;
+
+    const currentPlayer = room.players[room.currentTurnIndex];
+
+    // Now send the question to the asker so they can pick
+    io.to(currentPlayer.id).emit('your-turn', {
+      question,
+      players: room.players,
+      you: currentPlayer.id,
+      mode: room.mode,
+      roundNumber: room.roundNumber,
+    });
+
+    // Confirm to whisperer that question was sent
+    io.to(whisperer.id).emit('you-are-whisperer', {
+      question,
+      askerName: currentPlayer.name,
+      mode: room.mode,
+      roundNumber: room.roundNumber,
+    });
+  });
 
   // ---- PICK PLAYER ----
   socket.on('pick-player', ({ pickedId }) => {

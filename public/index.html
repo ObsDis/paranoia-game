@@ -418,6 +418,22 @@
       display: none; align-items: center; justify-content: center;
     }
     .live-q-toggle.visible { display: flex; }
+    /* Whisper question input */
+    .whisper-input-area { margin: 14px 0; }
+    .whisper-input-area textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 12px; border-radius: 10px; font-family: 'Inter', sans-serif;
+      font-size: 0.95rem; resize: none; min-height: 70px; outline: none;
+    }
+    .whisper-input-area textarea:focus { border-color: var(--pink); }
+    .whisper-input-area textarea::placeholder { color: var(--text-dim); }
+    .whisper-send-btn {
+      margin-top: 10px; padding: 12px 24px; background: linear-gradient(135deg, #ec4899, #be185d);
+      color: white; border: none; border-radius: 12px; font-family: 'Inter', sans-serif;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer; width: 100%;
+    }
+    .whisper-send-btn:active { transform: scale(0.97); }
+
     .live-q-toast {
       position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
       background: var(--success); color: white; padding: 8px 18px; border-radius: 10px;
@@ -1008,6 +1024,67 @@ socket.on('waiting-for-pick', ({ currentPlayerName, whispererName, players: p, m
     <div class="emoji-big">🤫</div>
     <div class="result-text"><b>${escapeHtml(whispererName)}</b> is whispering to <b>${escapeHtml(currentPlayerName)}</b></div>
     <p style="color:var(--text-dim);font-size:0.9rem;">Waiting for them to point<span class="waiting-dots"></span></p>
+  `;
+});
+
+// ===== CUSTOM MODE: WHISPERER TYPES QUESTION =====
+socket.on('type-your-question', ({ askerName, mode, roundNumber, bonusChallenge }) => {
+  showScreen('game');
+  updateGameTopBar(mode, roundNumber);
+  updateCircle();
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  let bonusHtml = '';
+  if (bonusChallenge) {
+    bonusHtml = `<div class="bonus-banner"><div class="text">${bonusChallenge.text}</div></div>`;
+  }
+
+  $('gamePanel').innerHTML = `
+    ${bonusHtml}
+    <div class="whisperer-badge-tag">You're the Whisperer</div>
+    <div class="panel-label">Type a question for <b>${escapeHtml(askerName)}</b></div>
+    <div class="whisper-input-area">
+      <textarea id="whisperQInput" placeholder="Who is most likely to...?" maxlength="200" autofocus></textarea>
+      <button class="whisper-send-btn" id="whisperQSend">Send Question</button>
+    </div>
+    <p style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Only ${escapeHtml(askerName)} will see this question</p>
+  `;
+
+  $('whisperQSend').onclick = () => {
+    const text = $('whisperQInput').value.trim();
+    if (!text || text.length < 5) {
+      toast('Question is too short', true);
+      return;
+    }
+    socket.emit('submit-whisper-question', { text });
+    $('whisperQSend').disabled = true;
+    $('whisperQSend').textContent = 'Sent!';
+  };
+
+  $('whisperQInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      $('whisperQSend').click();
+    }
+  });
+});
+
+socket.on('waiting-for-whisper', ({ whispererName, players: p, you, mode, roundNumber, bonusChallenge }) => {
+  players = p; showScreen('game');
+  updateGameTopBar(mode, roundNumber);
+  updateCircle();
+  $('endGameBtn').style.display = isHost ? 'inline-block' : 'none';
+
+  let bonusHtml = '';
+  if (bonusChallenge) {
+    bonusHtml = `<div class="bonus-banner"><div class="text">${bonusChallenge.text}</div></div>`;
+  }
+
+  $('gamePanel').innerHTML = `
+    ${bonusHtml}
+    <div class="panel-label">Custom Question Round</div>
+    <div class="result-text"><b>${escapeHtml(whispererName)}</b> is writing a question for you...</div>
+    <p style="color:var(--text-dim);font-size:0.9rem;">Get ready to pick someone<span class="waiting-dots"></span></p>
   `;
 });
 
