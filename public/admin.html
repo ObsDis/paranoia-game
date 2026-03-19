@@ -159,6 +159,14 @@
   <div class="card"><div class="label">All-Time Visits</div><div class="value orange" id="metricVisitsAll">--</div><div class="sub">Total</div></div>
 </div>
 
+<!-- ENGAGEMENT -->
+<div class="grid">
+  <div class="card"><div class="label">Rooms Created</div><div class="value purple" id="metricRoomsCreated">--</div><div class="sub">All time</div></div>
+  <div class="card"><div class="label">Games Started</div><div class="value green" id="metricGamesStarted">--</div><div class="sub">Actually played</div></div>
+  <div class="card"><div class="label">Unique Players</div><div class="value pink" id="metricUniquePlayers">--</div><div class="sub">Who played a game</div></div>
+  <div class="card"><div class="label">Bounce Rate</div><div class="value orange" id="metricBounceRate">--</div><div class="sub">Visited but didn't play</div></div>
+</div>
+
 <!-- TRAFFIC CHART -->
 <div class="section">
   <h2>Traffic (Last 14 Days)</h2>
@@ -252,6 +260,10 @@ function applyMetrics(m) {
   $('metricUniqueToday').textContent = m.uniqueVisitorsToday + ' unique';
   $('metricVisitsWeek').textContent = m.visitsThisWeek;
   $('metricVisitsAll').textContent = m.visitsAllTime;
+  $('metricRoomsCreated').textContent = m.roomsCreated;
+  $('metricGamesStarted').textContent = m.gamesStarted;
+  $('metricUniquePlayers').textContent = m.uniquePlayersPlayed;
+  $('metricBounceRate').textContent = m.bounceRate + '%';
   renderChart(m.visitsByDay);
   renderMap(m.activeLocations);
   renderUsers(m.users);

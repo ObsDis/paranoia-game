@@ -153,6 +153,18 @@ app.post('/api/track-visit', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ===== ACTIVITY LOGGING =====
+function logActivity(eventType, data = {}) {
+  if (!supabaseReady) return;
+  supabase.from('activity_events').insert({
+    event_type: eventType,
+    player_name: data.playerName || null,
+    room_code: data.roomCode || null,
+    ip_hash: data.ipHash || null,
+    metadata: data.metadata || {},
+  }).then(() => {});
+}
+
 // ===== ADMIN DASHBOARD =====
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'paranoia-admin';
 
@@ -192,6 +204,10 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
     users: [],
     visitsByDay: [],
     activeLocations: [...activeUsers.values()],
+    roomsCreated: 0,
+    gamesStarted: 0,
+    uniquePlayersPlayed: 0,
+    bounceRate: 0,
   };
 
   if (!supabaseReady) return res.json(metrics);
@@ -261,6 +277,31 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
         byDay[day] = (byDay[day] || 0) + 1;
       });
       metrics.visitsByDay = Object.entries(byDay).sort().map(([date, count]) => ({ date, count }));
+    }
+  } catch (e) {}
+
+  // Activity metrics
+  try {
+    const { count: roomCount } = await supabase.from('activity_events').select('*', { count: 'exact', head: true }).eq('event_type', 'room_created');
+    metrics.roomsCreated = roomCount || 0;
+  } catch (e) {}
+
+  try {
+    const { count: gameCount } = await supabase.from('activity_events').select('*', { count: 'exact', head: true }).eq('event_type', 'game_started');
+    metrics.gamesStarted = gameCount || 0;
+  } catch (e) {}
+
+  try {
+    const { data: playerEvents } = await supabase.from('activity_events').select('player_name').eq('event_type', 'player_played');
+    metrics.uniquePlayersPlayed = playerEvents ? new Set(playerEvents.map(e => e.player_name)).size : 0;
+  } catch (e) {}
+
+  // Bounce rate: visits that never created/joined a room
+  try {
+    const { count: totalVisitors } = await supabase.from('site_visits').select('*', { count: 'exact', head: true });
+    const { count: engagedVisitors } = await supabase.from('activity_events').select('*', { count: 'exact', head: true }).eq('event_type', 'room_created');
+    if (totalVisitors && totalVisitors > 0) {
+      metrics.bounceRate = Math.round(((totalVisitors - (engagedVisitors || 0)) / totalVisitors) * 100);
     }
   } catch (e) {}
 
@@ -346,6 +387,7 @@ io.on('connection', (socket) => {
     currentRoom = code;
     currentName = name;
     socket.emit('room-created', { code, players: room.players, you: socket.id, mode: room.mode, intensity: room.intensity });
+    logActivity('room_created', { playerName: name, roomCode: code, ipHash: crypto.createHash('sha256').update(clientIp || '').digest('hex').substring(0, 16) });
   });
 
   // ---- JOIN ROOM ----
@@ -464,6 +506,11 @@ io.on('connection', (socket) => {
     room.currentTurnIndex = 0;
     room.roundNumber = 0;
     startTurn(room);
+    logActivity('game_started', { roomCode: currentRoom, metadata: { playerCount: room.players.length, mode: room.mode } });
+    // Log each player who played
+    room.players.forEach(p => {
+      logActivity('player_played', { playerName: p.name, roomCode: currentRoom });
+    });
   });
 
   function startTurn(room) {
