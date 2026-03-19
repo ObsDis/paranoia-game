@@ -460,15 +460,17 @@
       pointer-events: none;
     }
     .mute-toggle {
-      position: fixed; bottom: 20px; left: 20px; width: 56px; height: 56px;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      margin-left: -220px; /* half of 480px max-width = 240, minus a bit of padding */
+      width: 56px; height: 56px;
       border-radius: 50%; background: rgba(0,0,0,0.7); border: 2px solid rgba(255,255,255,0.3);
       color: white; font-size: 1.5rem; cursor: pointer; z-index: 100;
       display: flex; align-items: center; justify-content: center;
       backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       transition: all 0.2s;
     }
-    .mute-toggle:hover { background: rgba(0,0,0,0.9); border-color: rgba(255,255,255,0.5); transform: scale(1.1); }
-    .mute-toggle:active { transform: scale(0.95); }
+    .mute-toggle:hover { background: rgba(0,0,0,0.9); border-color: rgba(255,255,255,0.5); transform: translateX(-50%) scale(1.1); margin-left: -220px; }
+    .mute-toggle:active { transform: translateX(-50%) scale(0.95); margin-left: -220px; }
 
     /* Mobile: video fills full screen */
     @media (max-width: 600px) {
@@ -479,6 +481,11 @@
         width: 100vw; height: 177.78vw;
         min-width: 56.25vh; min-height: 100vh;
       }
+      .mute-toggle {
+        left: 20px; transform: none; margin-left: 0;
+      }
+      .mute-toggle:hover { transform: scale(1.1); margin-left: 0; }
+      .mute-toggle:active { transform: scale(0.95); margin-left: 0; }
     }
   </style>
 </head>
