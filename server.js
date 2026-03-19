@@ -9,8 +9,34 @@ const presetQuestions = require('./questions');
 const drinkingRules = require('./drinking-rules');
 
 const app = express();
+app.set('trust proxy', true); // for getting real IP behind Render's proxy
 const server = http.createServer(app);
 const io = new Server(server);
+
+// ===== GEO TRACKING =====
+const activeUsers = new Map(); // socketId -> { lat, lng, city, country, connectedAt }
+const geoCache = new Map(); // ip -> { lat, lng, city, country, ts }
+
+async function lookupGeo(ip) {
+  // Skip local/private IPs
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return null;
+  }
+  // Check cache (1 hour TTL)
+  const cached = geoCache.get(ip);
+  if (cached && Date.now() - cached.ts < 3600000) return cached;
+
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,lat,lon,city,country`);
+    const data = await res.json();
+    if (data.status === 'success') {
+      const geo = { lat: data.lat, lng: data.lon, city: data.city || '', country: data.country || '', ts: Date.now() };
+      geoCache.set(ip, geo);
+      return geo;
+    }
+  } catch (e) { /* ignore geo failures */ }
+  return null;
+}
 
 // Supabase client
 const supabase = createClient(
@@ -165,6 +191,7 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
     recentQuestions: [],
     users: [],
     visitsByDay: [],
+    activeLocations: [...activeUsers.values()],
   };
 
   if (!supabaseReady) return res.json(metrics);
@@ -273,6 +300,14 @@ function getRandomPunishment(type) {
 io.on('connection', (socket) => {
   let currentRoom = null;
   let currentName = null;
+
+  // Geo-track this connection
+  const clientIp = socket.handshake.headers['x-forwarded-for']?.split(',')[0]?.trim() || socket.handshake.address;
+  lookupGeo(clientIp).then(geo => {
+    if (geo) {
+      activeUsers.set(socket.id, { lat: geo.lat, lng: geo.lng, city: geo.city, country: geo.country, connectedAt: Date.now() });
+    }
+  });
 
   // ---- CREATE ROOM ----
   socket.on('create-room', ({ name, avatar, mode, intensity, questionSources, customQuestions }) => {
@@ -686,6 +721,7 @@ io.on('connection', (socket) => {
 
   // ---- DISCONNECT ----
   socket.on('disconnect', () => {
+    activeUsers.delete(socket.id);
     if (!currentRoom) return;
     const room = rooms.get(currentRoom);
     if (!room) return;

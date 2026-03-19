@@ -80,6 +80,36 @@
     .q-text { max-width: 400px; word-break: break-word; }
 
     @media (max-width: 768px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* World map */
+    .map-container {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; position: relative; overflow: hidden;
+    }
+    .map-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .map-header h2 { margin-bottom: 0; }
+    .map-count { font-size: 0.8rem; color: var(--text-dim); }
+    .map-wrap { position: relative; width: 100%; aspect-ratio: 2/1; }
+    .map-wrap svg { width: 100%; height: 100%; }
+    .map-dot {
+      position: absolute; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--success); transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px var(--success), 0 0 20px rgba(34, 197, 94, 0.3);
+      animation: mapPulse 2s ease-in-out infinite;
+    }
+    .map-dot::after {
+      content: ''; position: absolute; inset: -4px; border-radius: 50%;
+      border: 1px solid rgba(34, 197, 94, 0.4); animation: mapRing 2s ease-out infinite;
+    }
+    @keyframes mapPulse { 0%,100%{opacity:0.8;transform:translate(-50%,-50%) scale(1)} 50%{opacity:1;transform:translate(-50%,-50%) scale(1.3)} }
+    @keyframes mapRing { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(2.5);opacity:0} }
+    .map-tooltip {
+      position: absolute; background: var(--surface2); border: 1px solid var(--border);
+      padding: 4px 8px; border-radius: 6px; font-size: 0.65rem; color: var(--text);
+      pointer-events: none; white-space: nowrap; transform: translate(-50%, -130%); z-index: 5;
+      display: none;
+    }
+    .map-dot:hover + .map-tooltip, .map-dot:hover ~ .map-tooltip { display: block; }
   </style>
 </head>
 <body>
@@ -103,6 +133,30 @@
   <div class="card"><div class="label">In Lobbies</div><div class="value cyan" id="metricPlayersInLobbies">--</div><div class="sub">Waiting</div></div>
   <div class="card"><div class="label">Rooms Open</div><div class="value gold" id="metricActiveRooms">--</div><div class="sub">Total</div></div>
   <div class="card"><div class="label">Rounds Active</div><div class="value orange" id="metricRoundsActive">--</div><div class="sub">All games</div></div>
+</div>
+
+<!-- LIVE MAP -->
+<div class="section">
+  <div class="map-container">
+    <div class="map-header">
+      <h2>Live Users</h2>
+      <div class="map-count" id="mapCount">0 users located</div>
+    </div>
+    <div class="map-wrap" id="mapWrap">
+      <svg viewBox="0 0 1000 500" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.15;">
+        <rect width="1000" height="500" fill="none"/>
+        <path d="M170 120 L180 115 L195 118 L200 130 L210 135 L215 150 L225 165 L220 180 L210 190 L195 195 L180 200 L170 210 L160 225 L150 240 L140 250 L145 260 L155 270 L165 280 L170 295 L160 310 L150 325 L140 340 L130 350 L120 345 L115 330 L110 315 L105 300 L110 285 L120 270 L130 255 L135 240 L130 225 L120 210 L115 195 L120 180 L130 165 L140 150 L150 140 L160 130 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M200 130 L220 125 L240 120 L260 115 L280 118 L295 125 L300 135 L290 140 L275 138 L260 135 L245 140 L235 150 L225 165 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M450 80 L480 75 L520 70 L560 72 L600 78 L640 85 L680 80 L720 75 L760 78 L790 85 L810 95 L820 110 L815 130 L800 145 L780 155 L760 160 L740 158 L720 150 L700 145 L680 150 L660 160 L640 170 L620 175 L600 170 L580 160 L560 155 L540 160 L520 170 L505 180 L490 175 L480 165 L470 150 L460 135 L455 120 L450 105 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M520 170 L540 180 L560 190 L575 200 L580 215 L575 230 L565 240 L550 248 L535 252 L520 250 L510 240 L505 225 L500 210 L505 195 L510 180 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M560 190 L580 195 L600 200 L620 210 L635 220 L640 235 L635 250 L625 260 L610 265 L595 262 L580 255 L570 245 L565 235 L565 220 L560 205 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M640 170 L660 175 L680 180 L700 190 L715 200 L720 215 L715 230 L705 240 L690 245 L675 242 L660 235 L650 225 L645 210 L640 195 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M720 150 L740 155 L760 165 L780 175 L800 185 L815 200 L825 220 L830 240 L825 260 L815 275 L800 285 L785 290 L770 285 L760 275 L750 260 L745 245 L740 230 L735 215 L730 200 L725 185 L720 170 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+        <path d="M830 300 L850 295 L870 300 L890 310 L905 325 L915 345 L920 365 L915 385 L905 400 L890 410 L870 415 L850 410 L835 400 L825 385 L820 365 L825 345 L830 325 Z" fill="#2a2a3a" stroke="#3a3a4a"/>
+      </svg>
+      <div id="mapDots"></div>
+    </div>
+  </div>
 </div>
 
 <!-- PERSISTENT -->
@@ -209,6 +263,7 @@ function applyMetrics(m) {
   $('metricVisitsWeek').textContent = m.visitsThisWeek;
   $('metricVisitsAll').textContent = m.visitsAllTime;
   renderChart(m.visitsByDay);
+  renderMap(m.activeLocations);
   renderUsers(m.users);
   renderQuestions(m.recentQuestions);
 }
@@ -224,6 +279,37 @@ function renderChart(data) {
     w.className = 'chart-bar-wrap';
     w.innerHTML = '<div class="chart-count">' + d.count + '</div><div class="chart-bar" style="height:' + Math.max(pct, 3) + '%"></div><div class="chart-date">' + d.date.substring(5) + '</div>';
     c.appendChild(w);
+  });
+}
+
+function renderMap(locations) {
+  const container = $('mapDots');
+  const countEl = $('mapCount');
+  if (!locations || locations.length === 0) {
+    container.innerHTML = '';
+    countEl.textContent = '0 users located';
+    return;
+  }
+  countEl.textContent = locations.length + ' user' + (locations.length !== 1 ? 's' : '') + ' located';
+  container.innerHTML = '';
+  locations.forEach((loc, i) => {
+    // Equirectangular projection: convert lat/lng to percentage position
+    const x = ((loc.lng + 180) / 360) * 100;
+    const y = ((90 - loc.lat) / 180) * 100;
+    const dot = document.createElement('div');
+    dot.className = 'map-dot';
+    dot.style.left = x + '%';
+    dot.style.top = y + '%';
+    dot.style.animationDelay = (i * 0.3) + 's';
+    const tip = document.createElement('div');
+    tip.className = 'map-tooltip';
+    tip.style.left = x + '%';
+    tip.style.top = y + '%';
+    tip.textContent = (loc.city ? loc.city + ', ' : '') + (loc.country || 'Unknown');
+    dot.addEventListener('mouseenter', () => tip.style.display = 'block');
+    dot.addEventListener('mouseleave', () => tip.style.display = 'none');
+    container.appendChild(dot);
+    container.appendChild(tip);
   });
 }
 
