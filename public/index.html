@@ -730,6 +730,7 @@ function loadSession() {
     const raw = sessionStorage.getItem('paranoia_session');
     if (!raw) return null;
     const session = JSON.parse(raw);
+    // Only restore sessions less than 10 minutes old
     if (Date.now() - session.timestamp > 10 * 60 * 1000) {
       sessionStorage.removeItem('paranoia_session');
       return null;
@@ -748,6 +749,7 @@ let currentName = null;
 socket.on('connect', () => {
   const session = loadSession();
   if (session && session.roomCode) {
+    // Try to rejoin the room after reconnection
     socket.emit('rejoin-room', {
       code: session.roomCode,
       name: session.name,
@@ -758,24 +760,30 @@ socket.on('connect', () => {
 
 socket.on('rejoin-failed', ({ reason }) => {
   clearSession();
+  // Only show error if we're not already on the home screen
   const homeScreen = document.getElementById('home');
   if (!homeScreen || !homeScreen.classList.contains('active')) {
     showScreen('home');
   }
 });
 
+// When another player disconnects temporarily
 socket.on('player-disconnected', ({ players: p, name }) => {
   players = p;
+  // Don't show a "left" message - they might come back
   const notice = document.createElement('div');
+  notice.className = 'toast-notice';
   notice.textContent = name + ' lost connection...';
   notice.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--surface3);color:var(--text-dim);padding:10px 20px;border-radius:8px;z-index:999;font-size:0.85rem;';
   document.body.appendChild(notice);
   setTimeout(() => notice.remove(), 4000);
 });
 
+// When a player reconnects
 socket.on('player-reconnected', ({ players: p, name }) => {
   players = p;
   const notice = document.createElement('div');
+  notice.className = 'toast-notice';
   notice.textContent = name + ' reconnected!';
   notice.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--success);color:white;padding:10px 20px;border-radius:8px;z-index:999;font-size:0.85rem;';
   document.body.appendChild(notice);
@@ -1094,6 +1102,7 @@ function showLobby() {
   updateLobbyPlayers();
   $('shareBtn').onclick = () => {
     const url = `${window.location.origin}?room=${roomCode}`;
+    // Use native share sheet on mobile, clipboard on desktop
     if (navigator.share) {
       navigator.share({
         title: 'Join my PARANOIA game!',
@@ -1511,6 +1520,9 @@ fetch('/api/track-visit', {
 }).catch(() => {});
 
 // ===== KEEP-ALIVE: VISIBILITY & WAKE LOCK =====
+// When the tab/app becomes hidden (phone screen off, app backgrounded),
+// try to keep the socket alive and reconnect immediately when visible again.
+
 let wakeLock = null;
 
 async function requestWakeLock() {
@@ -1519,7 +1531,7 @@ async function requestWakeLock() {
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
-  } catch (e) {}
+  } catch (e) { /* wake lock not available or denied */ }
 }
 
 function releaseWakeLock() {
@@ -1531,18 +1543,26 @@ function releaseWakeLock() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    if (!socket.connected && roomCode) socket.connect();
+    // Tab/app became visible again - reconnect if needed
+    if (!socket.connected && roomCode) {
+      socket.connect();
+    }
+    // Re-request wake lock (it gets released when hidden)
     if (roomCode) requestWakeLock();
   } else {
+    // Going hidden - save session in case connection drops
     saveSession();
   }
 });
 
+// Request wake lock when joining a game
+const origShowLobby = typeof showLobby === 'function' ? showLobby : null;
 socket.on('room-created', () => requestWakeLock());
 socket.on('room-joined', () => requestWakeLock());
 socket.on('game-ended', () => releaseWakeLock());
 socket.on('kicked', () => { releaseWakeLock(); clearSession(); });
 
+// Also handle page freeze/resume (mobile browsers)
 document.addEventListener('freeze', () => { saveSession(); });
 document.addEventListener('resume', () => {
   if (!socket.connected && roomCode) socket.connect();

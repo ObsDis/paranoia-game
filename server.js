@@ -850,16 +850,23 @@ io.on('connection', (socket) => {
     }
 
     if (pending) {
+      // Player is in the grace period - restore them
       clearTimeout(pending.timeout);
       disconnectedPlayers.delete(key);
 
+      // Find the placeholder player and update their socket ID
       const player = room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
       if (player) {
         const oldId = player.id;
         player.id = socket.id;
         player.disconnected = false;
-        if (room.host === oldId) room.host = socket.id;
+
+        // Transfer host if needed
+        if (room.host === oldId) {
+          room.host = socket.id;
+        }
       } else {
+        // Player was somehow removed, re-add them
         room.players.push({ id: socket.id, name, avatar, score: pending.player.score || 0 });
       }
 
@@ -875,8 +882,10 @@ io.on('connection', (socket) => {
       });
       if (isHostNow) socket.emit('you-are-host');
 
+      // Notify others the player is back
       socket.to(room.code).emit('player-reconnected', { players: room.players, name });
 
+      // If game is in progress, sync state
       if (room.state === 'playing') {
         const currentPlayer = room.players[room.currentTurnIndex];
         socket.emit('game-state-sync', {
@@ -887,6 +896,7 @@ io.on('connection', (socket) => {
         });
       }
     } else {
+      // No pending disconnect - try normal join
       socket.emit('rejoin-failed', { reason: 'No active session found. Please join as a new player.' });
     }
   });
@@ -905,10 +915,13 @@ io.on('connection', (socket) => {
     const playerName = currentName || player.name;
     const playerRoomCode = currentRoom;
 
+    // Mark player as disconnected but keep them in the room
     player.disconnected = true;
 
+    // Set up grace period timeout
     const key = getDisconnectKey(playerRoomCode, playerName);
     const timeout = setTimeout(() => {
+      // Grace period expired - actually remove the player
       disconnectedPlayers.delete(key);
       const room = rooms.get(playerRoomCode);
       if (!room) return;
@@ -922,6 +935,7 @@ io.on('connection', (socket) => {
         return;
       }
 
+      // Transfer host if needed
       const activePlayer = room.players.find(p => !p.disconnected);
       if (room.host === socket.id || !room.players.find(p => p.id === room.host)) {
         if (activePlayer) {
@@ -934,6 +948,7 @@ io.on('connection', (socket) => {
       io.to(room.code).emit('player-left', { players: room.players, leftName: playerName });
 
       if (room.state === 'playing' && room.players.filter(p => !p.disconnected).length >= 3) {
+        // Skip disconnected player's turn if it was their turn
         const currentPlayer = room.players[room.currentTurnIndex];
         if (currentPlayer && currentPlayer.disconnected) {
           room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
@@ -952,23 +967,29 @@ io.on('connection', (socket) => {
       socketId: socket.id,
     });
 
+    // Notify others the player went offline (but is still in the game)
     io.to(room.code).emit('player-disconnected', { players: room.players, name: playerName });
 
+    // If it's the disconnected player's turn during a game, skip after a short delay
     if (room.state === 'playing') {
       const currentPlayer = room.players[room.currentTurnIndex];
       if (currentPlayer && currentPlayer.id === socket.id) {
+        // Give them 30 seconds to reconnect before skipping their turn
         setTimeout(() => {
           const room = rooms.get(playerRoomCode);
           if (!room || room.state !== 'playing') return;
           const cp = room.players[room.currentTurnIndex];
           if (cp && cp.disconnected) {
             room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+            // Skip any other disconnected players
             let attempts = 0;
             while (room.players[room.currentTurnIndex]?.disconnected && attempts < room.players.length) {
               room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
               attempts++;
             }
-            if (attempts < room.players.length) startTurn(room);
+            if (attempts < room.players.length) {
+              startTurn(room);
+            }
           }
         }, 30000);
       }
