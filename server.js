@@ -806,10 +806,75 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     const idx = room.players.findIndex(p => p.id === playerId);
     if (idx === -1 || playerId === socket.id) return;
+    const kickedName = room.players[idx].name;
+
+    // Clear any pending disconnect grace period for this player
+    const key = getDisconnectKey(room.code, kickedName);
+    const pending = disconnectedPlayers.get(key);
+    if (pending) { clearTimeout(pending.timeout); disconnectedPlayers.delete(key); }
+
+    const wasTurn = room.currentTurnIndex === idx;
     room.players.splice(idx, 1);
     io.to(playerId).emit('kicked');
-    io.to(room.code).emit('player-joined', { players: room.players });
+
+    if (room.players.length === 0) { rooms.delete(currentRoom); return; }
     if (room.currentTurnIndex >= room.players.length) room.currentTurnIndex = 0;
+    io.to(room.code).emit('player-left', { players: room.players, leftName: kickedName });
+
+    // If we kicked the player whose turn it was, advance
+    if (room.state === 'playing' && wasTurn) {
+      if (room.players.filter(p => !p.disconnected).length >= 3) {
+        startTurn(room);
+      } else {
+        room.state = 'lobby';
+        io.to(room.code).emit('game-ended', { players: room.players, reason: 'Not enough players' });
+      }
+    }
+  });
+
+  // ---- LEAVE GAME (voluntary) ----
+  socket.on('leave-game', () => {
+    const room = rooms.get(currentRoom);
+    if (!room) return;
+    const idx = room.players.findIndex(p => p.id === socket.id);
+    if (idx === -1) return;
+    const leftName = room.players[idx].name;
+
+    // Clear any pending disconnect grace period
+    const key = getDisconnectKey(room.code, leftName);
+    const pending = disconnectedPlayers.get(key);
+    if (pending) { clearTimeout(pending.timeout); disconnectedPlayers.delete(key); }
+
+    const wasTurn = room.currentTurnIndex === idx;
+    const wasHost = room.host === socket.id;
+    room.players.splice(idx, 1);
+    socket.leave(room.code);
+
+    if (room.players.length === 0) { rooms.delete(currentRoom); currentRoom = null; return; }
+    if (room.currentTurnIndex >= room.players.length) room.currentTurnIndex = 0;
+
+    // Transfer host if the one who left was host
+    if (wasHost) {
+      const newHost = room.players.find(p => !p.disconnected) || room.players[0];
+      if (newHost) {
+        room.host = newHost.id;
+        io.to(newHost.id).emit('you-are-host');
+      }
+    }
+
+    io.to(room.code).emit('player-left', { players: room.players, leftName });
+
+    // If it was this player's turn, advance
+    if (room.state === 'playing' && wasTurn) {
+      if (room.players.filter(p => !p.disconnected).length >= 3) {
+        startTurn(room);
+      } else {
+        room.state = 'lobby';
+        io.to(room.code).emit('game-ended', { players: room.players, reason: 'Not enough players' });
+      }
+    }
+
+    currentRoom = null;
   });
 
   // ---- END GAME ----

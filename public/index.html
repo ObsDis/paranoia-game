@@ -172,7 +172,14 @@
     }
     .player-chip .avatar { font-size: 1.1rem; }
     .player-chip.host { border-color: var(--gold); }
+    .player-chip.disconnected { opacity: 0.4; }
     .host-badge { font-size: 0.65rem; color: var(--gold); margin-left: 2px; }
+    .kick-btn {
+      background: none; border: none; color: var(--text-dim); cursor: pointer;
+      font-size: 0.85rem; padding: 0 0 0 4px; line-height: 1; font-family: 'Inter', sans-serif;
+      transition: color 0.2s;
+    }
+    .kick-btn:hover { color: var(--danger); }
     .player-count { color: var(--text-dim); font-size: 0.85rem; text-align: center; }
 
     /* Lobby settings */
@@ -647,6 +654,7 @@
   <div class="lobby-actions">
     <button class="btn btn-primary" id="startBtn" style="display:none;">Start Game</button>
     <p class="waiting-text" id="waitingHost" style="display:none;">Waiting for host to start<span class="waiting-dots"></span></p>
+    <button class="btn btn-secondary" id="leaveGameBtn" style="margin-top:6px;">Leave Game</button>
   </div>
 </div>
 
@@ -660,6 +668,7 @@
     <span class="badge round-badge badge-purple" id="roundBadge">Round 1</span>
     <div class="game-top-right">
       <button class="btn-ghost" id="historyToggle">📜</button>
+      <button class="btn btn-small btn-secondary" id="leaveGameBtnInGame">Leave</button>
       <button class="btn btn-small btn-secondary" id="endGameBtn" style="display:none;">End</button>
     </div>
   </div>
@@ -1119,18 +1128,50 @@ function updateLobbyPlayers() {
   $('playerCount').textContent = `${players.length} player${players.length !== 1 ? 's' : ''} in room`;
   const list = $('playersList');
   list.innerHTML = '';
-  players.forEach(p => {
-    const chip = document.createElement('div');
-    chip.className = 'player-chip' + (p.id === players[0]?.id ? ' host' : '');
-    chip.innerHTML = `<span class="avatar">${p.avatar}</span>${escapeHtml(p.name)}${p.id === players[0]?.id ? '<span class="host-badge">HOST</span>' : ''}`;
-    list.appendChild(chip);
-  });
   const imHost = players.length > 0 && players[0].id === myId;
   isHost = imHost;
+  players.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'player-chip' + (p.id === players[0]?.id ? ' host' : '') + (p.disconnected ? ' disconnected' : '');
+    let html = `<span class="avatar">${p.avatar}</span>${escapeHtml(p.name)}`;
+    if (p.id === players[0]?.id) html += '<span class="host-badge">HOST</span>';
+    // Host sees kick button on everyone except themselves
+    if (imHost && p.id !== myId) {
+      html += `<button class="kick-btn" data-pid="${p.id}" title="Remove player">&times;</button>`;
+    }
+    chip.innerHTML = html;
+    list.appendChild(chip);
+  });
+  // Attach kick handlers
+  list.querySelectorAll('.kick-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const pid = btn.getAttribute('data-pid');
+      const name = players.find(p => p.id === pid)?.name || 'this player';
+      if (confirm(`Remove ${name} from the game?`)) {
+        socket.emit('kick-player', { playerId: pid });
+      }
+    };
+  });
   $('startBtn').style.display = imHost ? 'block' : 'none';
   $('waitingHost').style.display = !imHost ? 'block' : 'none';
   $('settingsCard').style.display = imHost ? 'block' : 'none';
 }
+
+function handleLeaveGame() {
+  if (confirm('Leave this game?')) {
+    socket.emit('leave-game');
+    clearSession();
+    releaseWakeLock();
+    roomCode = null;
+    players = [];
+    isHost = false;
+    showScreen('home');
+    toast('You left the game');
+  }
+}
+$('leaveGameBtn').onclick = handleLeaveGame;
+$('leaveGameBtnInGame').onclick = handleLeaveGame;
 
 $('startBtn').onclick = () => {
   const customQ = getCustomQuestions();
