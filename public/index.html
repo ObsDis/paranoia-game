@@ -587,7 +587,7 @@
   <div class="room-header">
     <div class="room-label">ROOM CODE</div>
     <div class="room-code" id="lobbyCode"></div>
-    <button class="share-btn" id="shareBtn">📋 Copy invite link</button>
+    <button class="share-btn" id="shareBtn">📋 Share invite link</button>
   </div>
 
   <div class="player-count" id="playerCount"></div>
@@ -696,7 +696,13 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 10000,
+  timeout: 30000,
+});
 
 // State
 let myId = null;
@@ -704,6 +710,77 @@ let isHost = false;
 let roomCode = '';
 let players = [];
 let gameHistory = [];
+
+// ===== SESSION PERSISTENCE FOR RECONNECTION =====
+function saveSession() {
+  if (roomCode && currentName) {
+    try {
+      sessionStorage.setItem('paranoia_session', JSON.stringify({
+        roomCode,
+        name: currentName,
+        avatar: selectedAvatar,
+        timestamp: Date.now(),
+      }));
+    } catch (e) {}
+  }
+}
+
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem('paranoia_session');
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (Date.now() - session.timestamp > 10 * 60 * 1000) {
+      sessionStorage.removeItem('paranoia_session');
+      return null;
+    }
+    return session;
+  } catch (e) { return null; }
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem('paranoia_session'); } catch (e) {}
+}
+
+let currentName = null;
+
+// Handle socket reconnection
+socket.on('connect', () => {
+  const session = loadSession();
+  if (session && session.roomCode) {
+    socket.emit('rejoin-room', {
+      code: session.roomCode,
+      name: session.name,
+      avatar: session.avatar,
+    });
+  }
+});
+
+socket.on('rejoin-failed', ({ reason }) => {
+  clearSession();
+  const homeScreen = document.getElementById('home');
+  if (!homeScreen || !homeScreen.classList.contains('active')) {
+    showScreen('home');
+  }
+});
+
+socket.on('player-disconnected', ({ players: p, name }) => {
+  players = p;
+  const notice = document.createElement('div');
+  notice.textContent = name + ' lost connection...';
+  notice.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--surface3);color:var(--text-dim);padding:10px 20px;border-radius:8px;z-index:999;font-size:0.85rem;';
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 4000);
+});
+
+socket.on('player-reconnected', ({ players: p, name }) => {
+  players = p;
+  const notice = document.createElement('div');
+  notice.textContent = name + ' reconnected!';
+  notice.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--success);color:white;padding:10px 20px;border-radius:8px;z-index:999;font-size:0.85rem;';
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 4000);
+});
 let currentMode = 'classic';
 let currentIntensity = 'medium';
 let supabaseClient = null;
@@ -849,6 +926,7 @@ function toast(msg, isError = false) {
 $('createBtn').onclick = () => {
   const name = $('nameInput').value.trim();
   if (!name) return toast('Enter your name!', true);
+  currentName = name;
   const customQ = getCustomQuestions();
   socket.emit('create-room', {
     name, avatar: selectedAvatar,
@@ -862,6 +940,7 @@ $('joinBtn').onclick = () => {
   const code = $('codeInput').value.trim();
   if (!name) return toast('Enter your name!', true);
   if (!code) return toast('Enter a room code!', true);
+  currentName = name;
   socket.emit('join-room', { code, name, avatar: selectedAvatar });
 };
 
@@ -978,20 +1057,25 @@ $('addCommunityToGame')?.addEventListener('click', () => {
 socket.on('room-created', ({ code, players: p, you, mode, intensity }) => {
   myId = you; isHost = true; roomCode = code; players = p;
   currentMode = mode; currentIntensity = intensity;
+  currentName = p.find(pl => pl.id === you)?.name || currentName;
+  saveSession();
   showLobby();
 });
 
-socket.on('room-joined', ({ code, players: p, you, state, mode, intensity }) => {
+socket.on('room-joined', ({ code, players: p, you, state, mode, intensity, rejoin }) => {
   myId = you; roomCode = code; players = p;
   currentMode = mode || 'classic'; currentIntensity = intensity || 'medium';
+  currentName = p.find(pl => pl.id === you)?.name || currentName;
+  saveSession();
   if (state === 'playing') { showScreen('game'); } else { showLobby(); }
+  if (rejoin) toast('Reconnected!');
 });
 
 socket.on('player-joined', ({ players: p }) => { players = p; updateLobbyPlayers(); updateCircle(); });
 socket.on('player-left', ({ players: p, leftName }) => { players = p; updateLobbyPlayers(); updateCircle(); toast(`${leftName} left`); });
 socket.on('you-are-host', () => { isHost = true; toast("You're the new host!"); updateLobbyPlayers(); });
 socket.on('error-msg', msg => toast(msg, true));
-socket.on('kicked', () => { toast('You were kicked', true); showScreen('home'); });
+socket.on('kicked', () => { clearSession(); toast('You were kicked', true); showScreen('home'); });
 
 socket.on('settings-updated', ({ mode, intensity, questionCount }) => {
   currentMode = mode; currentIntensity = intensity;
@@ -1010,7 +1094,15 @@ function showLobby() {
   updateLobbyPlayers();
   $('shareBtn').onclick = () => {
     const url = `${window.location.origin}?room=${roomCode}`;
-    navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => prompt('Share this link:', url));
+    if (navigator.share) {
+      navigator.share({
+        title: 'Join my PARANOIA game!',
+        text: `Join my PARANOIA game! Room code: ${roomCode}`,
+        url: url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => prompt('Share this link:', url));
+    }
   };
 }
 
@@ -1417,6 +1509,44 @@ fetch('/api/track-visit', {
     })(),
   }),
 }).catch(() => {});
+
+// ===== KEEP-ALIVE: VISIBILITY & WAKE LOCK =====
+let wakeLock = null;
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && roomCode) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) {}
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (!socket.connected && roomCode) socket.connect();
+    if (roomCode) requestWakeLock();
+  } else {
+    saveSession();
+  }
+});
+
+socket.on('room-created', () => requestWakeLock());
+socket.on('room-joined', () => requestWakeLock());
+socket.on('game-ended', () => releaseWakeLock());
+socket.on('kicked', () => { releaseWakeLock(); clearSession(); });
+
+document.addEventListener('freeze', () => { saveSession(); });
+document.addEventListener('resume', () => {
+  if (!socket.connected && roomCode) socket.connect();
+});
 
 // ===== INIT =====
 init();
