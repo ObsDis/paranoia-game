@@ -61,6 +61,15 @@ async function checkSupabase() {
   }
 }
 
+// Redirect Render URL to custom domain
+app.use((req, res, next) => {
+  const host = req.hostname;
+  if (host && host.includes('onrender.com')) {
+    return res.redirect(301, 'https://playparanoia.org' + req.originalUrl);
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
