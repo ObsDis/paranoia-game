@@ -952,9 +952,31 @@ $('createBtn').onclick = () => {
   });
 };
 
+function extractRoomCode(raw) {
+  // Try to pull a room code from a URL like https://playparanoia.org/?room=ABC123
+  try {
+    const urlMatch = raw.match(/[?&]room=([A-Za-z0-9]+)/);
+    if (urlMatch) return urlMatch[1].toUpperCase();
+  } catch (e) {}
+  // Otherwise grab the first alphanumeric chunk that looks like a code (6 chars)
+  const codeMatch = raw.match(/\b([A-Za-z0-9]{6})\b/);
+  if (codeMatch) return codeMatch[1].toUpperCase();
+  // Fallback: just return whatever they typed, trimmed
+  return raw.trim().toUpperCase();
+}
+
+// Clean pasted content in the code field
+$('codeInput').addEventListener('input', () => {
+  const raw = $('codeInput').value;
+  // Only clean if it looks like pasted junk (contains spaces, URLs, or newlines)
+  if (raw.includes(' ') || raw.includes('\n') || raw.includes('http')) {
+    $('codeInput').value = extractRoomCode(raw);
+  }
+});
+
 $('joinBtn').onclick = () => {
   const name = $('nameInput').value.trim();
-  const code = $('codeInput').value.trim();
+  const code = extractRoomCode($('codeInput').value);
   if (!name) return toast('Enter your name!', true);
   if (!code) return toast('Enter a room code!', true);
   currentName = name;
