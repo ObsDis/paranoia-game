@@ -180,6 +180,7 @@
   <div class="tabs-row">
     <button class="tab-btn active" onclick="switchTab('users')">Registered Users</button>
     <button class="tab-btn" onclick="switchTab('questions')">User Questions</button>
+    <button class="tab-btn" onclick="switchTab('traffic')">Historic Traffic</button>
   </div>
 
   <div class="tab-content active" id="tab-users">
@@ -197,6 +198,39 @@
         <thead><tr><th>Question</th><th>By</th><th>Type</th><th>Upvotes</th><th>Submitted</th></tr></thead>
         <tbody id="questionsTable"><tr><td colspan="5" class="empty-state">Loading...</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-traffic">
+    <div class="grid" style="margin-bottom:14px;">
+      <div class="card" id="trafficCountryCard">
+        <div class="label">Top Countries</div>
+        <div id="trafficCountryList" style="margin-top:8px;font-size:0.8rem;"></div>
+      </div>
+      <div class="card" id="trafficDeviceCard">
+        <div class="label">Devices</div>
+        <div id="trafficDeviceList" style="margin-top:8px;font-size:0.8rem;"></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;margin-bottom:8px;">Top Cities</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>City</th><th>Country</th><th>Visits</th></tr></thead>
+          <tbody id="trafficCityTable"><tr><td colspan="3" class="empty-state">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;margin-bottom:8px;">Recent Visits</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Location</th><th>Device</th><th>Referrer</th><th>When</th></tr></thead>
+          <tbody id="recentVisitsTable"><tr><td colspan="4" class="empty-state">Loading...</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -268,6 +302,7 @@ function applyMetrics(m) {
   renderMap(m.activeLocations);
   renderUsers(m.users);
   renderQuestions(m.recentQuestions);
+  renderTrafficBreakdown(m.trafficByCountry, m.trafficByDevice, m.trafficByCity, m.recentVisits);
 }
 
 function renderChart(data) {
@@ -460,6 +495,65 @@ function renderQuestions(questions) {
       '<td style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">' + fmtDate(q.created_at) + '</td>';
     tb.appendChild(tr);
   });
+}
+
+function renderTrafficBreakdown(countries, devices, cities, recent) {
+  // Countries
+  const cl = $('trafficCountryList');
+  if (!countries || countries.length === 0) { cl.innerHTML = '<span style="color:var(--text-dim)">No data yet</span>'; }
+  else {
+    cl.innerHTML = '';
+    countries.slice(0, 10).forEach(c => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);';
+      row.innerHTML = '<span>' + esc(c.country) + '</span><span style="color:var(--accent);font-weight:600;">' + c.count + '</span>';
+      cl.appendChild(row);
+    });
+  }
+
+  // Devices
+  const dl = $('trafficDeviceList');
+  if (!devices || devices.length === 0) { dl.innerHTML = '<span style="color:var(--text-dim)">No data yet</span>'; }
+  else {
+    const total = devices.reduce((s, d) => s + d.count, 0);
+    dl.innerHTML = '';
+    devices.forEach(d => {
+      const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+      const icon = d.device === 'mobile' ? '📱' : d.device === 'tablet' ? '📱' : '💻';
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:8px;';
+      row.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>' + icon + ' ' + esc(d.device) + '</span><span style="color:var(--text-dim);">' + pct + '% (' + d.count + ')</span></div>' +
+        '<div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;"><div style="background:var(--accent);height:100%;width:' + pct + '%;border-radius:4px;"></div></div>';
+      dl.appendChild(row);
+    });
+  }
+
+  // Cities
+  const ct = $('trafficCityTable');
+  if (!cities || cities.length === 0) { ct.innerHTML = '<tr><td colspan="3" class="empty-state">No geo data yet</td></tr>'; }
+  else {
+    ct.innerHTML = '';
+    cities.slice(0, 20).forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + esc(c.city) + '</td><td style="color:var(--text-dim);">' + esc(c.country) + '</td><td style="text-align:center;font-weight:600;color:var(--accent);">' + c.count + '</td>';
+      ct.appendChild(tr);
+    });
+  }
+
+  // Recent visits
+  const rv = $('recentVisitsTable');
+  if (!recent || recent.length === 0) { rv.innerHTML = '<tr><td colspan="4" class="empty-state">No visits yet</td></tr>'; }
+  else {
+    rv.innerHTML = '';
+    recent.forEach(v => {
+      const tr = document.createElement('tr');
+      const loc = (v.city ? v.city + ', ' : '') + (v.country || 'Unknown');
+      const ref = v.referrer ? v.referrer.replace(/https?:\/\//, '').substring(0, 30) : 'Direct';
+      const deviceIcon = v.device === 'mobile' ? '📱' : '💻';
+      tr.innerHTML = '<td>' + esc(loc) + '</td><td>' + deviceIcon + ' ' + esc(v.device || '?') + '</td><td style="color:var(--text-dim);font-size:0.7rem;">' + esc(ref) + '</td><td style="font-size:0.7rem;color:var(--text-dim);white-space:nowrap;">' + timeAgo(new Date(v.created_at)) + '</td>';
+      rv.appendChild(tr);
+    });
+  }
 }
 
 function copyText(text) {

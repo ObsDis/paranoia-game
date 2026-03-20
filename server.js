@@ -145,17 +145,30 @@ app.get('/api/drinking-rules', (req, res) => {
   res.json(drinkingRules);
 });
 
-// Track page visit
+// Track page visit with geo
 app.post('/api/track-visit', async (req, res) => {
   const { page, referrer, visitor_id } = req.body;
   if (supabaseReady) {
     try {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
+      const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16);
+      const ua = req.headers['user-agent'] || '';
+      const device = /Mobile|Android|iPhone|iPad/i.test(ua) ? 'mobile' : /Tablet/i.test(ua) ? 'tablet' : 'desktop';
+
+      // Geo lookup (non-blocking, best effort)
+      const geo = await lookupGeo(ip);
+
       await supabase.from('site_visits').insert({
         visitor_id: visitor_id || null,
         page: page || '/',
         referrer: referrer || null,
-        user_agent: req.headers['user-agent'] || null,
-        ip_hash: crypto.createHash('sha256').update(req.ip || '').digest('hex').substring(0, 16),
+        user_agent: ua,
+        ip_hash: ipHash,
+        city: geo?.city || null,
+        country: geo?.country || null,
+        lat: geo?.lat || null,
+        lng: geo?.lng || null,
+        device: device,
       });
     } catch (e) { /* ignore */ }
   }
@@ -217,6 +230,10 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
     gamesStarted: 0,
     uniquePlayersPlayed: 0,
     bounceRate: 0,
+    trafficByCountry: [],
+    trafficByCity: [],
+    trafficByDevice: [],
+    recentVisits: [],
   };
 
   if (!supabaseReady) return res.json(metrics);
@@ -304,6 +321,39 @@ app.get('/api/admin/metrics', requireAdmin, async (req, res) => {
     const { data: playerEvents } = await supabase.from('activity_events').select('player_name').eq('event_type', 'player_played');
     metrics.uniquePlayersPlayed = playerEvents ? new Set(playerEvents.map(e => e.player_name)).size : 0;
   } catch (e) {}
+
+  // Historic traffic breakdown
+  try {
+    const { data: allVisits } = await supabase.from('site_visits').select('country, city, lat, lng, device, referrer, created_at, ip_hash').order('created_at', { ascending: false });
+    if (allVisits) {
+      // By country
+      const byCountry = {};
+      allVisits.forEach(v => { if (v.country) byCountry[v.country] = (byCountry[v.country] || 0) + 1; });
+      metrics.trafficByCountry = Object.entries(byCountry).sort((a, b) => b[1] - a[1]).map(([country, count]) => ({ country, count }));
+
+      // By city
+      const byCity = {};
+      allVisits.forEach(v => {
+        if (v.city && v.country) {
+          const key = v.city + ', ' + v.country;
+          byCity[key] = byCity[key] || { city: v.city, country: v.country, lat: v.lat, lng: v.lng, count: 0 };
+          byCity[key].count++;
+        }
+      });
+      metrics.trafficByCity = Object.values(byCity).sort((a, b) => b.count - a.count);
+
+      // By device
+      const byDevice = {};
+      allVisits.forEach(v => { const d = v.device || 'unknown'; byDevice[d] = (byDevice[d] || 0) + 1; });
+      metrics.trafficByDevice = Object.entries(byDevice).map(([device, count]) => ({ device, count }));
+
+      // Recent visits (last 50)
+      metrics.recentVisits = allVisits.slice(0, 50).map(v => ({
+        city: v.city, country: v.country, device: v.device,
+        referrer: v.referrer, created_at: v.created_at, ip_hash: v.ip_hash,
+      }));
+    }
+  } catch (e) { console.error('Admin: traffic breakdown failed:', e.message); }
 
   // Bounce rate: visits that never created/joined a room
   try {
