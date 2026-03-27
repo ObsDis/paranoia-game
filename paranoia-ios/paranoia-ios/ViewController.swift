@@ -2,7 +2,7 @@ import UIKit
 import WebKit
 import PhotosUI
 
-class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     private var webView: WKWebView!
 
     override func viewDidLoad() {
@@ -28,6 +28,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
         webView.scrollView.bounces = false
         webView.isOpaque = false
         webView.backgroundColor = UIColor(red: 0.039, green: 0.039, blue: 0.059, alpha: 1)
@@ -130,6 +131,28 @@ class ViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHan
             let js = "window.onProfilePhotoSelected && window.onProfilePhotoSelected('data:image/jpeg;base64,\(base64)');"
             self?.webView.evaluateJavaScript(js, completionHandler: nil)
         }
+    }
+
+    // MARK: - WKUIDelegate (JS alert/confirm/prompt)
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
+        present(alert, animated: true)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler(true) })
+        present(alert, animated: true)
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+        alert.addTextField { $0.text = defaultText }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(nil) })
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler(alert.textFields?.first?.text) })
+        present(alert, animated: true)
     }
 
     // MARK: - Navigation
