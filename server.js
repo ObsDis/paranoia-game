@@ -422,7 +422,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- CREATE ROOM ----
-  socket.on('create-room', ({ name, avatar, mode, intensity, questionSources, customQuestions }) => {
+  socket.on('create-room', ({ name, avatar, profilePhoto, mode, intensity, questionSources, customQuestions }) => {
     const code = generateRoomCode();
 
     // Build question pool based on selected sources
@@ -440,7 +440,7 @@ io.on('connection', (socket) => {
     const room = {
       code,
       host: socket.id,
-      players: [{ id: socket.id, name, avatar, score: 0 }],
+      players: [{ id: socket.id, name, avatar, profilePhoto: profilePhoto || null, score: 0 }],
       state: 'lobby',
       mode: mode || 'classic', // classic or drinking
       intensity: intensity || 'medium',
@@ -462,7 +462,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- JOIN ROOM ----
-  socket.on('join-room', ({ code, name, avatar }) => {
+  socket.on('join-room', ({ code, name, avatar, profilePhoto }) => {
     const room = rooms.get(code.toUpperCase());
     if (!room) {
       socket.emit('error-msg', 'Room not found. Check the code and try again.');
@@ -476,7 +476,7 @@ io.on('connection', (socket) => {
       socket.emit('error-msg', 'Room is full (max 20 players).');
       return;
     }
-    room.players.push({ id: socket.id, name, avatar, score: 0 });
+    room.players.push({ id: socket.id, name, avatar, profilePhoto: profilePhoto || null, score: 0 });
     socket.join(code.toUpperCase());
     currentRoom = code.toUpperCase();
     currentName = name;
@@ -903,7 +903,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- REJOIN ROOM (reconnection after disconnect) ----
-  socket.on('rejoin-room', ({ code, name, avatar }) => {
+  socket.on('rejoin-room', ({ code, name, avatar, profilePhoto }) => {
     const roomCodeUpper = code.toUpperCase();
     const key = getDisconnectKey(roomCodeUpper, name);
     const pending = disconnectedPlayers.get(key);
@@ -932,7 +932,7 @@ io.on('connection', (socket) => {
         }
       } else {
         // Player was somehow removed, re-add them
-        room.players.push({ id: socket.id, name, avatar, score: pending.player.score || 0 });
+        room.players.push({ id: socket.id, name, avatar, profilePhoto: profilePhoto || null, score: pending.player.score || 0 });
       }
 
       socket.join(roomCodeUpper);

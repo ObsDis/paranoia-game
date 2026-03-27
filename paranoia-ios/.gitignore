@@ -1,0 +1,6 @@
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+*.xcschememanagement.plist
+DerivedData/
+build/
