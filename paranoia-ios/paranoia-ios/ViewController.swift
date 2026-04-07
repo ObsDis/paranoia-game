@@ -13,10 +13,12 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKSc
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
 
-        // Register JS-to-native message handler for photo picker
+        // Register JS-to-native message handlers
         let contentController = config.userContentController
         contentController.add(self, name: "pickPhoto")
         contentController.add(self, name: "takePhoto")
+        contentController.add(self, name: "share")
+        contentController.add(self, name: "haptic")
 
         // Inject flag so web app knows it's running in the iOS app
         let script = WKUserScript(
@@ -55,10 +57,62 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKSc
 
     // MARK: - WKScriptMessageHandler
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if message.name == "pickPhoto" {
+        switch message.name {
+        case "pickPhoto":
             openPhotoPicker()
-        } else if message.name == "takePhoto" {
+        case "takePhoto":
             openCamera()
+        case "share":
+            handleShare(message.body)
+        case "haptic":
+            handleHaptic(message.body)
+        default:
+            break
+        }
+    }
+
+    // MARK: - Native share sheet
+    private func handleShare(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        let text = (dict["text"] as? String) ?? ""
+        let urlString = (dict["url"] as? String) ?? ""
+
+        var items: [Any] = []
+        if !text.isEmpty { items.append(text) }
+        if let url = URL(string: urlString), !urlString.isEmpty { items.append(url) }
+        if items.isEmpty { return }
+
+        let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        // iPad popover anchoring (no-op on iPhone)
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = self.view
+            popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 1, height: 1)
+            popover.permittedArrowDirections = []
+        }
+        present(activity, animated: true)
+    }
+
+    // MARK: - Haptic feedback
+    private func handleHaptic(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        let style = (dict["style"] as? String) ?? "light"
+        DispatchQueue.main.async {
+            switch style {
+            case "light":
+                let g = UIImpactFeedbackGenerator(style: .light); g.prepare(); g.impactOccurred()
+            case "medium":
+                let g = UIImpactFeedbackGenerator(style: .medium); g.prepare(); g.impactOccurred()
+            case "heavy":
+                let g = UIImpactFeedbackGenerator(style: .heavy); g.prepare(); g.impactOccurred()
+            case "success":
+                let g = UINotificationFeedbackGenerator(); g.prepare(); g.notificationOccurred(.success)
+            case "warning":
+                let g = UINotificationFeedbackGenerator(); g.prepare(); g.notificationOccurred(.warning)
+            case "error":
+                let g = UINotificationFeedbackGenerator(); g.prepare(); g.notificationOccurred(.error)
+            default:
+                let g = UIImpactFeedbackGenerator(style: .light); g.prepare(); g.impactOccurred()
+            }
         }
     }
 
@@ -157,15 +211,34 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKSc
 
     // MARK: - Navigation
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        if let url = navigationAction.request.url {
-            if url.host == "playparanoia.org" || url.host == "www.playparanoia.org" {
-                decisionHandler(.allow)
-            } else {
-                UIApplication.shared.open(url)
-                decisionHandler(.cancel)
-            }
-        } else {
+        guard let url = navigationAction.request.url else {
             decisionHandler(.allow)
+            return
         }
+
+        // Always allow non-http schemes (data:, blob:, about:) and the playparanoia host
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme != "http" && scheme != "https" {
+            decisionHandler(.allow)
+            return
+        }
+
+        let host = url.host?.lowercased() ?? ""
+        let isPlayParanoia = host == "playparanoia.org" || host == "www.playparanoia.org"
+        // Supabase auth callbacks come from supabase.co subdomains
+        let isSupabase = host.hasSuffix(".supabase.co") || host.hasSuffix(".supabase.io")
+
+        if isPlayParanoia || isSupabase {
+            decisionHandler(.allow)
+            return
+        }
+
+        // Only top-level navigations (user-initiated taps) leak out to Safari.
+        // iframes/embeds (e.g. third-party trackers, YouTube embeds) are blocked
+        // entirely so they don't replace the main webview.
+        if navigationAction.targetFrame?.isMainFrame == true {
+            UIApplication.shared.open(url)
+        }
+        decisionHandler(.cancel)
     }
 }

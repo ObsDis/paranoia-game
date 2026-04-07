@@ -580,6 +580,13 @@
     <span id="userName" class="name">Player</span>
     <span class="badge badge-green">SIGNED IN</span>
     <button class="btn-ghost" id="logoutBtn">Sign Out</button>
+    <button class="btn-ghost" id="deleteAccountBtn" style="color:var(--danger);">Delete Account</button>
+  </div>
+  <!-- iOS-only support/privacy footer (shown after sign-in) -->
+  <div id="iosFooterLinks" style="display:none;text-align:center;font-size:0.75rem;margin-top:6px;">
+    <a href="/privacy" target="_blank" style="color:var(--text-dim);text-decoration:underline;">Privacy</a>
+    <span style="color:var(--text-dim);"> · </span>
+    <a href="/support" target="_blank" style="color:var(--text-dim);text-decoration:underline;">Support</a>
   </div>
 
   <!-- Main actions -->
@@ -615,7 +622,7 @@
       <li>A question is whispered to one player</li>
       <li>They answer by pointing at someone in the circle</li>
       <li><b>Heads</b> = question revealed, <b>Tails</b> = secret forever</li>
-      <li>🍺 Drinking mode adds punishments each round!</li>
+      <li>Dare or Drinking mode adds a challenge each round!</li>
     </ol>
   </div>
 </div>
@@ -641,6 +648,10 @@
         <button class="mode-btn active" data-mode="classic" id="modeClassic">
           <span class="mode-icon">🎭</span>
           <span class="mode-name">Classic</span>
+        </button>
+        <button class="mode-btn" data-mode="dare" id="modeDare">
+          <span class="mode-icon">💪</span>
+          <span class="mode-name">Dares</span>
         </button>
         <button class="mode-btn" data-mode="drinking" id="modeDrinking">
           <span class="mode-icon">🍺</span>
@@ -954,10 +965,61 @@ function showUserBar() {
   $('userName').textContent = meta.username || currentUser.email.split('@')[0];
   $('userAvatar').textContent = meta.avatar || selectedAvatar;
   $('nameInput').value = meta.username || currentUser.email.split('@')[0];
-  // iOS app: reveal game actions after sign-in
+  // iOS app: reveal game actions + privacy/support footer after sign-in
   if (window.isIOSApp) {
     document.querySelector('.home-actions').style.display = 'flex';
+    const footer = $('iosFooterLinks');
+    if (footer) footer.style.display = 'block';
   }
+}
+
+// ===== iOS APP RESTRICTIONS =====
+// Enforced separately from the auth flow because some restrictions apply
+// before the user signs in (mode toggle, custom-q button) and some apply
+// to elements that don't exist until the lobby is rendered.
+function applyIOSRestrictions() {
+  if (!window.isIOSApp) return;
+  // Force dare mode as the default and hide the drinking mode button
+  currentMode = 'dare';
+  const drinkingBtn = document.getElementById('modeDrinking');
+  if (drinkingBtn) drinkingBtn.style.display = 'none';
+  const intensityRow = document.getElementById('intensityRow');
+  if (intensityRow) intensityRow.style.display = 'none';
+  // Hide the custom question add button (live submission) entirely
+  const liveQ = document.getElementById('liveQToggle');
+  if (liveQ) liveQ.style.display = 'none';
+  const liveQBar = document.getElementById('liveQBar');
+  if (liveQBar) liveQBar.style.display = 'none';
+  // Hide the question-source row (no custom or community on iOS)
+  document.querySelectorAll('.q-source-btn').forEach(b => {
+    if (b.dataset.source !== 'preset') b.style.display = 'none';
+  });
+  // Hide the custom question textarea row
+  const customQArea = document.getElementById('customQArea');
+  if (customQArea) customQArea.style.display = 'none';
+  const communityQArea = document.getElementById('communityQArea');
+  if (communityQArea) communityQArea.style.display = 'none';
+}
+// Run immediately at script load and again after DOMContentLoaded just in case
+applyIOSRestrictions();
+document.addEventListener('DOMContentLoaded', applyIOSRestrictions);
+
+// ===== iOS NATIVE BRIDGE HELPERS =====
+function iosBridgeCall(name, payload) {
+  try {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) {
+      window.webkit.messageHandlers[name].postMessage(payload || {});
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+function iosHaptic(style) {
+  // style: 'light', 'medium', 'heavy', 'success', 'warning', 'error'
+  iosBridgeCall('haptic', { style: style || 'light' });
+}
+function iosShare(text, url) {
+  return iosBridgeCall('share', { text: text || '', url: url || '' });
 }
 
 // ===== AUTH HANDLERS =====
@@ -1004,12 +1066,58 @@ $('logoutBtn')?.addEventListener('click', async () => {
   currentUser = null;
   $('userBar').style.display = 'none';
   $('nameInput').value = '';
+  const footer = $('iosFooterLinks');
+  if (footer) footer.style.display = 'none';
   if (window.isIOSApp) {
     enforceIOSAuth();
   } else {
     $('authPrompt').style.display = 'block';
   }
   toast('Signed out');
+});
+
+// ===== ACCOUNT DELETION (App Store guideline 5.1.1(v)) =====
+$('deleteAccountBtn')?.addEventListener('click', async () => {
+  if (!currentUser) return;
+  const confirm1 = confirm('Delete your account? This is permanent and cannot be undone.');
+  if (!confirm1) return;
+  const confirm2 = confirm('Are you absolutely sure? All your data will be erased.');
+  if (!confirm2) return;
+  try {
+    let token = null;
+    if (supabaseClient) {
+      const { data } = await supabaseClient.auth.getSession();
+      token = data?.session?.access_token || null;
+    }
+    if (!token) {
+      toast('Could not get session token', true);
+      return;
+    }
+    const res = await fetch('/api/account/delete', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast(err.error || 'Deletion failed', true);
+      return;
+    }
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    currentUser = null;
+    $('userBar').style.display = 'none';
+    $('nameInput').value = '';
+    const footer = $('iosFooterLinks');
+    if (footer) footer.style.display = 'none';
+    if (window.isIOSApp) {
+      enforceIOSAuth();
+    } else {
+      $('authPrompt').style.display = 'block';
+    }
+    toast('Account deleted');
+    iosHaptic('success');
+  } catch (e) {
+    toast('Deletion failed: ' + e.message, true);
+  }
 });
 
 // ===== SCREEN MANAGEMENT =====
@@ -1032,10 +1140,12 @@ $('createBtn').onclick = () => {
   if (!name) return toast('Enter your name!', true);
   currentName = name;
   const customQ = getCustomQuestions();
+  iosHaptic('light');
   socket.emit('create-room', {
     name, avatar: selectedAvatar, profilePhoto: profilePhotoData || null,
     mode: currentMode, intensity: currentIntensity,
     questionSources, customQuestions: customQ,
+    safeMode: !!window.isIOSApp,
   });
 };
 
@@ -1080,6 +1190,7 @@ function getCustomQuestions() {
 
 // ===== SETTINGS =====
 $('modeClassic').onclick = () => setMode('classic');
+$('modeDare')?.addEventListener('click', () => setMode('dare'));
 $('modeDrinking').onclick = () => setMode('drinking');
 
 function setMode(mode) {
@@ -1220,16 +1331,17 @@ function showLobby() {
   updateLobbyPlayers();
   $('shareBtn').onclick = () => {
     const url = `${window.location.origin}?room=${roomCode}`;
-    // Use native share sheet on mobile, clipboard on desktop
+    const text = `Join my PARANOIA game! Room code: ${roomCode}`;
+    iosHaptic('light');
+    // 1. Native iOS bridge first (proper UIActivityViewController)
+    if (window.isIOSApp && iosShare(text, url)) return;
+    // 2. Web Share API on mobile
     if (navigator.share) {
-      navigator.share({
-        title: 'Join my PARANOIA game!',
-        text: `Join my PARANOIA game! Room code: ${roomCode}`,
-        url: url,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => prompt('Share this link:', url));
+      navigator.share({ title: 'Join my PARANOIA game!', text, url }).catch(() => {});
+      return;
     }
+    // 3. Fallback to clipboard
+    navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => prompt('Share this link:', url));
   };
 }
 
@@ -1430,14 +1542,16 @@ socket.on('coin-flip', ({ answererName, whispererName, pickedName, pickedId, coi
   players = p; gameHistory = history;
   updateCircle(pickedId);
   updateHistory();
+  iosHaptic('medium');
 
   const isRevealed = coinResult === 'heads';
 
   let punishmentHtml = '';
-  if (mode === 'drinking' && punishment) {
+  if ((mode === 'drinking' || mode === 'dare') && punishment) {
+    const icon = mode === 'drinking' ? '🍺' : '💪';
     punishmentHtml = `
       <div class="punishment-box">
-        <div class="emoji">🍺</div>
+        <div class="emoji">${icon}</div>
         <div class="text">${escapeHtml(punishment)}</div>
       </div>
     `;
@@ -1458,6 +1572,7 @@ socket.on('coin-flip', ({ answererName, whispererName, pickedName, pickedId, coi
 
   setTimeout(() => {
     const resultEl = $('resultText');
+    iosHaptic(isRevealed ? 'success' : 'warning');
     if (isRevealed) {
       resultEl.innerHTML = `
         <div style="color:var(--gold);font-size:1.3rem;margin-bottom:6px;">🪙 HEADS — REVEALED!</div>
@@ -1497,6 +1612,8 @@ function updateGameTopBar(mode, roundNumber) {
   if (roundNumber) $('roundBadge').textContent = `Round ${roundNumber}`;
   if (mode === 'drinking') {
     $('gameModeIndicator').innerHTML = '<span class="mode-drinking-indicator">🍺 Drinking Mode</span>';
+  } else if (mode === 'dare') {
+    $('gameModeIndicator').innerHTML = '<span class="mode-drinking-indicator" style="color:var(--pink);">💪 Dare Mode</span>';
   } else {
     $('gameModeIndicator').innerHTML = '';
   }

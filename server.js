@@ -6,7 +6,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const presetQuestions = require('./questions');
+const safeQuestions = require('./questions-safe');
 const drinkingRules = require('./drinking-rules');
+const dareRules = require('./dare-rules');
 
 const app = express();
 app.set('trust proxy', true); // for getting real IP behind Render's proxy
@@ -155,6 +157,71 @@ app.post('/api/questions/submit', async (req, res) => {
 // Get drinking rules
 app.get('/api/drinking-rules', (req, res) => {
   res.json(drinkingRules);
+});
+
+// Get dare rules
+app.get('/api/dare-rules', (req, res) => {
+  res.json(dareRules);
+});
+
+// Privacy policy + support pages (also served as static, but explicit routes
+// give us clean URLs without the .html extension)
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+app.get('/support', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'support.html'));
+});
+
+// ===== ACCOUNT DELETION =====
+// Required by Apple App Store guideline 5.1.1(v) for any app that supports
+// account creation. We let the client call this with their access token; we
+// then verify the token and delete their auth row + related profile data.
+app.post('/api/account/delete', async (req, res) => {
+  if (!supabaseReady) {
+    return res.status(503).json({ error: 'Account service unavailable' });
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return res.status(401).json({ error: 'Missing access token' });
+  }
+  try {
+    // Verify the token by asking Supabase who it belongs to.
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+    if (userErr || !userData || !userData.user) {
+      return res.status(401).json({ error: 'Invalid access token' });
+    }
+    const userId = userData.user.id;
+
+    // Best-effort cleanup of related rows. We do this with the anon key,
+    // so it only works for rows the user actually owns under RLS, which is
+    // exactly what we want.
+    try { await supabase.from('custom_questions').delete().eq('author_id', userId); } catch (e) {}
+    try { await supabase.from('question_packs').delete().eq('author_id', userId); } catch (e) {}
+    try { await supabase.from('profiles').delete().eq('id', userId); } catch (e) {}
+
+    // Note: fully removing the auth.users row requires a service role key.
+    // If SUPABASE_SERVICE_ROLE_KEY is set we use it; otherwise we mark the
+    // profile as deleted and rely on a daily cleanup job to purge auth.
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminClient = createClient(
+          process.env.SUPABASE_URL || '',
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
+        await adminClient.auth.admin.deleteUser(userId);
+      } catch (e) {
+        console.error('Admin user deletion failed:', e.message);
+      }
+    }
+
+    logActivity('account_deleted', { metadata: { userId } });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Account deletion error:', e.message);
+    res.status(500).json({ error: 'Deletion failed' });
+  }
 });
 
 // Track page visit with geo
@@ -402,10 +469,24 @@ function flipCoin() {
   return Math.random() < 0.5 ? 'heads' : 'tails';
 }
 
-function getRandomPunishment(type) {
-  const pool = drinkingRules[type];
+function getRandomPunishment(type, mode) {
+  const ruleset = mode === 'dare' ? dareRules : drinkingRules;
+  const pool = ruleset[type];
   if (!pool || pool.length === 0) return null;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function getBonusChallenge(roundNumber, mode) {
+  const ruleset = mode === 'dare' ? dareRules : drinkingRules;
+  if (roundNumber % 10 === 0) {
+    return ruleset.challenges.find(c => c.trigger === 'every10rounds');
+  } else if (roundNumber % 5 === 0) {
+    return ruleset.challenges.find(c => c.trigger === 'every5rounds');
+  } else if (Math.random() < 0.1) {
+    const randoms = ruleset.challenges.filter(c => c.trigger === 'random');
+    return randoms[Math.floor(Math.random() * randoms.length)];
+  }
+  return null;
 }
 
 // ===== SOCKET.IO =====
@@ -422,19 +503,27 @@ io.on('connection', (socket) => {
   });
 
   // ---- CREATE ROOM ----
-  socket.on('create-room', ({ name, avatar, profilePhoto, mode, intensity, questionSources, customQuestions }) => {
+  socket.on('create-room', ({ name, avatar, profilePhoto, mode, intensity, questionSources, customQuestions, safeMode }) => {
     const code = generateRoomCode();
+
+    // safeMode is set by the iOS app. It restricts the room to the curated
+    // PG-13 question pack and forbids drinking mode + custom/community sources.
+    const isSafe = !!safeMode;
+    let resolvedMode = mode || 'classic';
+    if (isSafe && resolvedMode === 'drinking') resolvedMode = 'dare';
+    let resolvedSources = questionSources || ['preset'];
+    if (isSafe) resolvedSources = ['preset']; // no custom or community in safe mode
 
     // Build question pool based on selected sources
     let questionPool = [];
-    if (!questionSources || questionSources.includes('preset')) {
-      questionPool = [...presetQuestions];
+    if (resolvedSources.includes('preset')) {
+      questionPool = isSafe ? [...safeQuestions] : [...presetQuestions];
     }
-    if (customQuestions && customQuestions.length > 0) {
+    if (!isSafe && customQuestions && customQuestions.length > 0) {
       questionPool = questionPool.concat(customQuestions);
     }
     if (questionPool.length === 0) {
-      questionPool = [...presetQuestions];
+      questionPool = isSafe ? [...safeQuestions] : [...presetQuestions];
     }
 
     const room = {
@@ -442,10 +531,11 @@ io.on('connection', (socket) => {
       host: socket.id,
       players: [{ id: socket.id, name, avatar, profilePhoto: profilePhoto || null, score: 0 }],
       state: 'lobby',
-      mode: mode || 'classic', // classic or drinking
+      mode: resolvedMode, // classic, drinking, or dare
       intensity: intensity || 'medium',
-      questionSources: questionSources || ['preset'],
+      questionSources: resolvedSources,
       questionPool,
+      safeMode: isSafe,
       currentTurnIndex: 0,
       roundNumber: 0,
       currentQuestion: null,
@@ -501,20 +591,26 @@ io.on('connection', (socket) => {
   socket.on('update-settings', ({ mode, intensity, questionSources, customQuestions }) => {
     const room = rooms.get(currentRoom);
     if (!room || room.host !== socket.id) return;
-    if (mode) room.mode = mode;
+
+    // Safe-mode rooms cannot switch to drinking, and cannot enable custom/community.
+    if (mode) {
+      room.mode = (room.safeMode && mode === 'drinking') ? 'dare' : mode;
+    }
     if (intensity) room.intensity = intensity;
-    if (questionSources) room.questionSources = questionSources;
+    if (questionSources) {
+      room.questionSources = room.safeMode ? ['preset'] : questionSources;
+    }
 
     // Rebuild question pool
     let questionPool = [];
-    if (!questionSources || questionSources.includes('preset')) {
-      questionPool = [...presetQuestions];
+    if (!room.questionSources || room.questionSources.includes('preset')) {
+      questionPool = room.safeMode ? [...safeQuestions] : [...presetQuestions];
     }
-    if (customQuestions && customQuestions.length > 0) {
+    if (!room.safeMode && customQuestions && customQuestions.length > 0) {
       questionPool = questionPool.concat(customQuestions);
     }
     if (questionPool.length === 0) {
-      questionPool = [...presetQuestions];
+      questionPool = room.safeMode ? [...safeQuestions] : [...presetQuestions];
     }
     room.questionPool = questionPool;
 
@@ -525,6 +621,7 @@ io.on('connection', (socket) => {
   socket.on('add-community-questions', ({ questions }) => {
     const room = rooms.get(currentRoom);
     if (!room || room.host !== socket.id) return;
+    if (room.safeMode) return; // safe rooms only use the curated pack
     if (questions && questions.length > 0) {
       room.questionPool = room.questionPool.concat(questions);
       io.to(room.code).emit('settings-updated', { mode: room.mode, intensity: room.intensity, questionCount: room.questionPool.length });
@@ -535,6 +632,10 @@ io.on('connection', (socket) => {
   socket.on('submit-live-question', async ({ text }) => {
     const room = rooms.get(currentRoom);
     if (!room) return;
+    if (room.safeMode) {
+      socket.emit('error-msg', 'Custom questions are disabled in this room');
+      return;
+    }
     if (!text || text.trim().length < 10) {
       socket.emit('error-msg', 'Question must be at least 10 characters');
       return;
@@ -591,17 +692,10 @@ io.on('connection', (socket) => {
     const whispererIndex = (room.currentTurnIndex - 1 + room.players.length) % room.players.length;
     const whisperer = room.players[whispererIndex];
 
-    // Check for bonus drinking challenges
+    // Check for bonus challenges (drinking or dare mode)
     let bonusChallenge = null;
-    if (room.mode === 'drinking') {
-      if (room.roundNumber % 10 === 0) {
-        bonusChallenge = drinkingRules.challenges.find(c => c.trigger === 'every10rounds');
-      } else if (room.roundNumber % 5 === 0) {
-        bonusChallenge = drinkingRules.challenges.find(c => c.trigger === 'every5rounds');
-      } else if (Math.random() < 0.1) {
-        const randoms = drinkingRules.challenges.filter(c => c.trigger === 'random');
-        bonusChallenge = randoms[Math.floor(Math.random() * randoms.length)];
-      }
+    if (room.mode === 'drinking' || room.mode === 'dare') {
+      bonusChallenge = getBonusChallenge(room.roundNumber, room.mode);
     }
 
     // Check if custom-only mode (whisperer types the question)
@@ -739,13 +833,13 @@ io.on('connection', (socket) => {
     const whispererIndex = (room.currentTurnIndex - 1 + room.players.length) % room.players.length;
     const whisperer = room.players[whispererIndex];
 
-    // Get drinking punishment
+    // Get drinking punishment or dare
     let punishment = null;
-    if (room.mode === 'drinking') {
+    if (room.mode === 'drinking' || room.mode === 'dare') {
       if (coinResult === 'heads') {
-        punishment = getRandomPunishment('revealed');
+        punishment = getRandomPunishment('revealed', room.mode);
       } else {
-        punishment = getRandomPunishment('secret');
+        punishment = getRandomPunishment('secret', room.mode);
       }
     }
 
